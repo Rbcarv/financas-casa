@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Finanças — Rapha & Fernanda</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #F7F6F3;
+    --surface: #FFFFFF;
+    --border: rgba(0,0,0,0.08);
+    --border-strong: rgba(0,0,0,0.15);
+    --text: #1A1A1A;
+    --text-muted: #6B6B6B;
+    --text-faint: #A0A0A0;
+    --rapha: #2563EB;
+    --rapha-light: #EFF6FF;
+    --rapha-mid: #93C5FD;
+    --fernanda: #DB2777;
+    --fernanda-light: #FDF2F8;
+    --fernanda-mid: #F9A8D4;
+    --green: #16A34A;
+    --green-light: #F0FDF4;
+    --red: #DC2626;
+    --red-light: #FEF2F2;
+    --amber: #D97706;
+    --amber-light: #FFFBEB;
+    --cat1: #2563EB; --cat2: #7C3AED; --cat3: #059669;
+    --cat4: #D97706; --cat5: #DB2777; --cat6: #0891B2;
+    --radius: 12px; --radius-sm: 8px;
+    --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  /* LAYOUT */
+  .app { display: flex; min-height: 100vh; }
+  .sidebar { width: 220px; background: var(--surface); border-right: 1px solid var(--border); padding: 24px 0; display: flex; flex-direction: column; position: fixed; top: 0; left: 0; height: 100vh; z-index: 10; }
+  .main { margin-left: 220px; padding: 32px; flex: 1; }
+
+  /* SIDEBAR */
+  .brand { padding: 0 20px 24px; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
+  .brand-title { font-size: 15px; font-weight: 600; color: var(--text); }
+  .brand-sub { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 20px; font-size: 13px; color: var(--text-muted); cursor: pointer; border-left: 2px solid transparent; transition: all .15s; }
+  .nav-item:hover { color: var(--text); background: var(--bg); }
+  .nav-item.active { color: var(--rapha); background: var(--rapha-light); border-left-color: var(--rapha); font-weight: 500; }
+  .nav-icon { width: 16px; height: 16px; flex-shrink: 0; }
+  .nav-section { font-size: 10px; font-weight: 600; color: var(--text-faint); letter-spacing: .08em; text-transform: uppercase; padding: 16px 20px 6px; }
+  .mes-select { margin: 16px 20px 0; padding: 8px 10px; border-radius: var(--radius-sm); border: 1px solid var(--border-strong); background: var(--bg); font-family: 'DM Sans', sans-serif; font-size: 13px; color: var(--text); width: calc(100% - 40px); cursor: pointer; }
+  .sidebar-footer { margin-top: auto; padding: 16px 20px 0; border-top: 1px solid var(--border); }
+  .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); display: inline-block; margin-right: 6px; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+  .status-txt { font-size: 11px; color: var(--text-muted); }
+
+  /* HEADER */
+  .page-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 28px; }
+  .page-title { font-size: 22px; font-weight: 600; color: var(--text); }
+  .page-sub { font-size: 13px; color: var(--text-muted); margin-top: 3px; }
+  .btn-refresh { display: flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: var(--radius-sm); border: 1px solid var(--border-strong); background: var(--surface); font-family: 'DM Sans', sans-serif; font-size: 12px; color: var(--text-muted); cursor: pointer; transition: all .15s; }
+  .btn-refresh:hover { background: var(--bg); color: var(--text); }
+
+  /* CARDS */
+  .card { background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border); padding: 20px; box-shadow: var(--shadow); }
+  .card-title { font-size: 13px; font-weight: 500; color: var(--text-muted); margin-bottom: 16px; text-transform: uppercase; letter-spacing: .05em; font-size: 11px; }
+
+  /* MÉTRICAS */
+  .metrics { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; margin-bottom: 20px; }
+  .metric { background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border); padding: 18px 20px; box-shadow: var(--shadow); }
+  .metric-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .06em; font-weight: 500; margin-bottom: 8px; }
+  .metric-value { font-size: 24px; font-weight: 600; color: var(--text); font-family: 'DM Mono', monospace; }
+  .metric-value.green { color: var(--green); }
+  .metric-value.red { color: var(--red); }
+  .metric-value.blue { color: var(--rapha); }
+  .metric-sub { font-size: 11px; color: var(--text-faint); margin-top: 5px; display: flex; align-items: center; gap: 4px; }
+  .trend { font-size: 11px; font-weight: 500; padding: 2px 6px; border-radius: 4px; }
+  .trend.up { background: var(--red-light); color: var(--red); }
+  .trend.dn { background: var(--green-light); color: var(--green); }
+  .trend.eq { background: var(--bg); color: var(--text-muted); }
+
+  /* GRID */
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+  .grid3 { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px; margin-bottom: 12px; }
+  .col-span2 { grid-column: span 2; }
+  .mb { margin-bottom: 12px; }
+
+  /* LEGEND */
+  .legend { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
+  .legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text-muted); }
+  .legend-dot { width: 9px; height: 9px; border-radius: 2px; flex-shrink: 0; }
+
+  /* BARRAS */
+  .bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 9px; }
+  .bar-label { font-size: 12px; color: var(--text-muted); width: 100px; flex-shrink: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bar-track { flex: 1; height: 7px; background: var(--bg); border-radius: 4px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 4px; transition: width .4s ease; }
+  .bar-val { font-size: 11px; color: var(--text-muted); width: 64px; text-align: right; flex-shrink: 0; font-family: 'DM Mono', monospace; }
+
+  /* METAS */
+  .meta-row { margin-bottom: 14px; }
+  .meta-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
+  .meta-name { font-size: 13px; font-weight: 500; color: var(--text); }
+  .meta-vals { font-size: 11px; color: var(--text-muted); font-family: 'DM Mono', monospace; }
+  .meta-track { height: 7px; background: var(--bg); border-radius: 4px; overflow: hidden; margin-bottom: 4px; }
+  .meta-fill { height: 100%; border-radius: 4px; transition: width .4s; }
+  .meta-status { font-size: 10px; font-weight: 600; }
+
+  /* BADGE */
+  .badge { display: inline-flex; align-items: center; font-size: 11px; font-weight: 500; padding: 2px 8px; border-radius: 99px; }
+  .badge.rapha { background: var(--rapha-light); color: var(--rapha); }
+  .badge.fernanda { background: var(--fernanda-light); color: var(--fernanda); }
+  .badge.comp { background: var(--bg); color: var(--text-muted); border: 1px solid var(--border); }
+  .badge.ok { background: var(--green-light); color: var(--green); }
+  .badge.warn { background: var(--amber-light); color: var(--amber); }
+  .badge.over { background: var(--red-light); color: var(--red); }
+
+  /* AVATAR */
+  .avatar { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; flex-shrink: 0; }
+  .avatar.r { background: var(--rapha-light); color: var(--rapha); }
+  .avatar.f { background: var(--fernanda-light); color: var(--fernanda); }
+
+  /* TABELA */
+  .tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .tbl th { text-align: left; font-size: 10px; font-weight: 600; color: var(--text-faint); text-transform: uppercase; letter-spacing: .06em; padding: 0 8px 10px 0; border-bottom: 1px solid var(--border); }
+  .tbl td { padding: 9px 8px 9px 0; border-bottom: 1px solid var(--border); color: var(--text); vertical-align: middle; }
+  .tbl tr:last-child td { border-bottom: none; }
+  .tbl tr:hover td { background: var(--bg); }
+  .mono { font-family: 'DM Mono', monospace; }
+
+  /* EQUILÍBRIO */
+  .eq-card { border-radius: var(--radius); padding: 20px; margin-bottom: 12px; }
+  .eq-card.blue { background: var(--rapha-light); border: 1px solid var(--rapha-mid); }
+  .eq-card.pink { background: var(--fernanda-light); border: 1px solid var(--fernanda-mid); }
+  .eq-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 6px; }
+  .eq-label.blue { color: var(--rapha); }
+  .eq-label.pink { color: var(--fernanda); }
+  .eq-value { font-size: 28px; font-weight: 600; font-family: 'DM Mono', monospace; }
+  .eq-value.blue { color: var(--rapha); }
+  .eq-value.pink { color: var(--fernanda); }
+  .eq-desc { font-size: 12px; margin-top: 4px; }
+  .eq-desc.blue { color: var(--rapha); opacity: .8; }
+  .eq-desc.pink { color: var(--fernanda); opacity: .8; }
+
+  /* FORMA DE PGTO */
+  .pgto-grid { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 10px; margin-bottom: 12px; }
+  .pgto-card { background: var(--bg); border-radius: var(--radius-sm); padding: 14px; text-align: center; }
+  .pgto-val { font-size: 18px; font-weight: 600; color: var(--text); font-family: 'DM Mono', monospace; }
+  .pgto-lbl { font-size: 11px; color: var(--text-muted); margin-top: 3px; }
+  .pgto-pct { font-size: 10px; color: var(--text-faint); margin-top: 2px; }
+
+  /* LOADING / VAZIO */
+  .empty { text-align: center; padding: 48px 24px; color: var(--text-faint); }
+  .empty-icon { font-size: 36px; margin-bottom: 12px; }
+  .empty-title { font-size: 15px; font-weight: 500; color: var(--text-muted); margin-bottom: 6px; }
+  .empty-desc { font-size: 13px; }
+  .loading { text-align: center; padding: 48px; color: var(--text-muted); font-size: 14px; }
+  .spinner { width: 24px; height: 24px; border: 2px solid var(--border); border-top-color: var(--rapha); border-radius: 50%; animation: spin .7s linear infinite; margin: 0 auto 12px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* TABS (oculto — nav lateral controla) */
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* RESPONSIVO */
+  @media (max-width: 900px) {
+    .sidebar { width: 100%; height: auto; position: relative; flex-direction: row; flex-wrap: wrap; }
+    .main { margin-left: 0; padding: 16px; }
+    .metrics { grid-template-columns: repeat(2, 1fr); }
+    .grid2 { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-title">Finanças Casa</div>
+      <div class="brand-sub">Rapha & Fernanda</div>
+    </div>
+
+    <select class="mes-select" id="selMes"></select>
+
+    <div class="nav-section">Visão</div>
+    <div class="nav-item active" onclick="setTab('geral',this)" data-tab="geral">
+      <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>
+      Visão geral
+    </div>
+    <div class="nav-item" onclick="setTab('equilibrio',this)" data-tab="equilibrio">
+      <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2v12M2 8h12"/><circle cx="8" cy="8" r="6"/></svg>
+      Equilíbrio
+    </div>
+    <div class="nav-item" onclick="setTab('metas',this)" data-tab="metas">
+      <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><circle cx="8" cy="8" r="2"/><path d="M8 2v2M8 12v2M2 8h2M12 8h2"/></svg>
+      Metas
+    </div>
+
+    <div class="nav-section">Pessoas</div>
+    <div class="nav-item" onclick="setTab('rapha',this)" data-tab="rapha">
+      <div style="width:16px;height:16px;border-radius:50%;background:var(--rapha-light);border:1.5px solid var(--rapha);display:flex;align-items:center;justify-content:center;font-size:7px;font-weight:700;color:var(--rapha)">R</div>
+      Rapha
+    </div>
+    <div class="nav-item" onclick="setTab('fernanda',this)" data-tab="fernanda">
+      <div style="width:16px;height:16px;border-radius:50%;background:var(--fernanda-light);border:1.5px solid var(--fernanda);display:flex;align-items:center;justify-content:center;font-size:7px;font-weight:700;color:var(--fernanda)">F</div>
+      Fernanda
+    </div>
+
+    <div class="nav-section">Detalhes</div>
+    <div class="nav-item" onclick="setTab('lancamentos',this)" data-tab="lancamentos">
+      <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12M2 8h8M2 12h10"/></svg>
+      Lançamentos
+    </div>
+    <div class="nav-item" onclick="setTab('parcelas',this)" data-tab="parcelas">
+      <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="3" width="14" height="10" rx="1.5"/><path d="M1 6h14"/></svg>
+      Parcelas
+    </div>
+    <div class="nav-item" onclick="setTab('pagamentos',this)" data-tab="pagamentos">
+      <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 2"/></svg>
+      Pagamentos
+    </div>
+
+    <div class="sidebar-footer">
+      <span class="status-dot"></span>
+      <span class="status-txt" id="status-txt">Conectado ao Sheets</span>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+
+    <!-- GERAL -->
+    <div class="tab-content active" id="tab-geral">
+      <div class="page-header">
+        <div><div class="page-title" id="title-geral">Carregando...</div><div class="page-sub">Resumo financeiro do mês</div></div>
+        <button class="btn-refresh" onclick="carregarDados()">↻ Atualizar</button>
+      </div>
+      <div class="metrics" id="metrics-geral"><div class="loading"><div class="spinner"></div>Lendo planilha...</div></div>
+      <div class="grid2">
+        <div class="card">
+          <div class="card-title">Gastos por categoria</div>
+          <div class="legend" id="leg-cat"></div>
+          <div style="position:relative;height:210px"><canvas id="cCat" role="img" aria-label="Rosca de gastos por categoria"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Rapha vs Fernanda</div>
+          <div class="legend">
+            <span class="legend-item"><span class="legend-dot" style="background:var(--rapha)"></span>Rapha</span>
+            <span class="legend-item"><span class="legend-dot" style="background:var(--fernanda)"></span>Fernanda</span>
+          </div>
+          <div style="position:relative;height:210px"><canvas id="cPes" role="img" aria-label="Barras comparando Rapha e Fernanda"></canvas></div>
+        </div>
+      </div>
+      <div class="card mb">
+        <div class="card-title">Evolução mensal — receitas vs despesas</div>
+        <div class="legend">
+          <span class="legend-item"><span class="legend-dot" style="background:var(--green)"></span>Receitas</span>
+          <span class="legend-item"><span class="legend-dot" style="background:var(--red)"></span>Despesas</span>
+          <span class="legend-item"><span class="legend-dot" style="background:var(--rapha)"></span>Saldo</span>
+        </div>
+        <div style="position:relative;height:180px"><canvas id="cEvol" role="img" aria-label="Evolução mensal"></canvas></div>
+      </div>
+    </div>
+
+    <!-- EQUILÍBRIO -->
+    <div class="tab-content" id="tab-equilibrio">
+      <div class="page-header">
+        <div><div class="page-title">Equilíbrio</div><div class="page-sub">Quem pagou mais e como compensar</div></div>
+      </div>
+      <div id="eq-content"></div>
+      <div class="card mb">
+        <div class="card-title">Histórico de equilíbrio mensal</div>
+        <div style="position:relative;height:200px"><canvas id="cEq" role="img" aria-label="Histórico de equilíbrio"></canvas></div>
+      </div>
+    </div>
+
+    <!-- METAS -->
+    <div class="tab-content" id="tab-metas">
+      <div class="page-header">
+        <div><div class="page-title">Metas</div><div class="page-sub">Orçamento vs realizado por categoria</div></div>
+      </div>
+      <div class="grid2">
+        <div class="card col-span2">
+          <div class="card-title">Progresso por categoria</div>
+          <div id="metas-bars"></div>
+        </div>
+      </div>
+      <div class="grid3" id="metas-resumo"></div>
+    </div>
+
+    <!-- RAPHA -->
+    <div class="tab-content" id="tab-rapha">
+      <div class="page-header">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div class="avatar r" style="width:44px;height:44px;font-size:15px">RA</div>
+          <div><div class="page-title">Rapha</div><div class="page-sub" id="rapha-sub">Gastos do mês</div></div>
+        </div>
+      </div>
+      <div class="metrics" id="metrics-rapha"></div>
+      <div class="grid2">
+        <div class="card"><div class="card-title">Por categoria</div><div id="rapha-bars"></div></div>
+        <div class="card"><div class="card-title">Distribuição</div><div style="position:relative;height:230px"><canvas id="cRapha" role="img" aria-label="Gastos de Rapha por categoria"></canvas></div></div>
+      </div>
+    </div>
+
+    <!-- FERNANDA -->
+    <div class="tab-content" id="tab-fernanda">
+      <div class="page-header">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div class="avatar f" style="width:44px;height:44px;font-size:15px">FE</div>
+          <div><div class="page-title">Fernanda</div><div class="page-sub" id="fernanda-sub">Gastos do mês</div></div>
+        </div>
+      </div>
+      <div class="metrics" id="metrics-fernanda"></div>
+      <div class="grid2">
+        <div class="card"><div class="card-title">Por categoria</div><div id="fernanda-bars"></div></div>
+        <div class="card"><div class="card-title">Distribuição</div><div style="position:relative;height:230px"><canvas id="cFernanda" role="img" aria-label="Gastos de Fernanda por categoria"></canvas></div></div>
+      </div>
+    </div>
+
+    <!-- LANÇAMENTOS -->
+    <div class="tab-content" id="tab-lancamentos">
+      <div class="page-header">
+        <div><div class="page-title">Lançamentos</div><div class="page-sub">Todos os registros do mês selecionado</div></div>
+      </div>
+      <div class="card">
+        <div id="lanc-content"></div>
+      </div>
+    </div>
+
+    <!-- PARCELAS -->
+    <div class="tab-content" id="tab-parcelas">
+      <div class="page-header">
+        <div><div class="page-title">Parcelas</div><div class="page-sub">Parcelamentos em aberto</div></div>
+      </div>
+      <div class="card"><div id="parc-content"></div></div>
+    </div>
+
+    <!-- PAGAMENTOS -->
+    <div class="tab-content" id="tab-pagamentos">
+      <div class="page-header">
+        <div><div class="page-title">Pagamentos</div><div class="page-sub">Como as despesas foram pagas</div></div>
+      </div>
+      <div class="pgto-grid" id="pgto-cards"></div>
+      <div class="grid2">
+        <div class="card"><div class="card-title">Por forma de pagamento</div><div style="position:relative;height:230px"><canvas id="cPgto" role="img" aria-label="Rosca formas de pagamento"></canvas></div></div>
+        <div class="card"><div class="card-title">Rapha vs Fernanda</div><div style="position:relative;height:230px"><canvas id="cPgtoPes" role="img" aria-label="Pagamentos por pessoa"></canvas></div></div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+// ─── CONFIGURAÇÃO ───────────────────────────────────────────────────────────
+const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSkLuoBN2sqT8oNJgGXrrrgW-ukoqm6WBv6jcCPaHaab1KpSpMox0ICOP_v1-0EiglI5rwMg3pH02xv/pub?gid=0&single=true&output=csv';
+
+const CATS = ['Moradia','Streaming & Assinaturas','Alimentação','Transporte','Compras','Casa & Reformas'];
+const CAT_COLORS = ['#2563EB','#7C3AED','#059669','#D97706','#DB2777','#0891B2'];
+const PGTOS = ['Crédito','Débito','PIX','Dinheiro'];
+const PGTO_COLORS = ['#2563EB','#059669','#7C3AED','#D97706'];
+
+// ─── ESTADO ──────────────────────────────────────────────────────────────────
+let todosLancamentos = [];
+let mesesDisponiveis = [];
+let mesSelecionado = '';
+let charts = {};
+
+// ─── UTILS ───────────────────────────────────────────────────────────────────
+const fmt = v => 'R$ ' + Math.round(v).toLocaleString('pt-BR');
+const soma = arr => arr.reduce((a,b)=>a+b,0);
+const pct = (a,b) => b ? Math.round((a/b)*100) : 0;
+
+function destroyChart(id) {
+  if (charts[id]) { charts[id].destroy(); delete charts[id]; }
+}
+function mkChart(id, cfg) {
+  destroyChart(id);
+  const el = document.getElementById(id);
+  if (el) charts[id] = new Chart(el, cfg);
+}
+
+// ─── CSV PARSER ───────────────────────────────────────────────────────────────
+function parseCSV(text) {
+  const lines = text.trim().split('\n');
+  const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g,''));
+  return lines.slice(1).map(line => {
+    const vals = [];
+    let cur = '', inQ = false;
+    for (let c of line) {
+      if (c==='"') { inQ=!inQ; }
+      else if (c===',' && !inQ) { vals.push(cur.trim()); cur=''; }
+      else { cur+=c; }
+    }
+    vals.push(cur.trim());
+    const obj = {};
+    headers.forEach((h,i) => obj[h] = (vals[i]||'').replace(/^"|"$/g,'').trim());
+    return obj;
+  }).filter(r => r['DATA'] && r['DATA'] !== '');
+}
+
+// ─── CARREGAR DADOS ──────────────────────────────────────────────────────────
+async function carregarDados() {
+  document.getElementById('status-txt').textContent = 'Atualizando...';
+  try {
+    const res = await fetch(CSV_URL + '&t=' + Date.now());
+    if (!res.ok) throw new Error('Erro na requisição');
+    const text = await res.text();
+    todosLancamentos = parseCSV(text);
+
+    // Extrair meses únicos
+    const mesesSet = new Set();
+    todosLancamentos.forEach(r => {
+      const d = parseDateBR(r['DATA']);
+      if (d) {
+        const key = `${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+        mesesSet.add(key);
+      }
+    });
+    mesesDisponiveis = [...mesesSet].sort((a,b)=>{
+      const [ma,ya]=a.split('/'); const [mb,yb]=b.split('/');
+      return new Date(ya,ma-1) - new Date(yb,mb-1);
+    });
+
+    popularSelectMes();
+    renderTudo();
+    document.getElementById('status-txt').textContent = 'Conectado ao Sheets';
+  } catch(e) {
+    document.getElementById('status-txt').textContent = 'Erro ao carregar';
+    mostrarErro();
+  }
+}
+
+function parseDateBR(str) {
+  if (!str) return null;
+  const partes = str.split('/');
+  if (partes.length === 3) return new Date(partes[2], partes[1]-1, partes[0]);
+  const d = new Date(str);
+  return isNaN(d) ? null : d;
+}
+
+function popularSelectMes() {
+  const sel = document.getElementById('selMes');
+  const mesesNomes = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  sel.innerHTML = '';
+  if (mesesDisponiveis.length === 0) {
+    const opt = document.createElement('option');
+    opt.value = ''; opt.textContent = 'Nenhum dado';
+    sel.appendChild(opt);
+    return;
+  }
+  mesesDisponiveis.forEach(m => {
+    const [mm, yyyy] = m.split('/');
+    const opt = document.createElement('option');
+    opt.value = m;
+    opt.textContent = mesesNomes[parseInt(mm)-1] + ' ' + yyyy;
+    sel.appendChild(opt);
+  });
+  sel.value = mesesDisponiveis[mesesDisponiveis.length-1];
+  mesSelecionado = sel.value;
+  sel.onchange = () => { mesSelecionado = sel.value; renderTudo(); };
+}
+
+// ─── FILTROS ──────────────────────────────────────────────────────────────────
+function lancamentosDOMes(mes) {
+  const [mm, yyyy] = mes.split('/');
+  return todosLancamentos.filter(r => {
+    const d = parseDateBR(r['DATA']);
+    if (!d) return false;
+    return d.getMonth()+1 === parseInt(mm) && d.getFullYear() === parseInt(yyyy);
+  });
+}
+
+function gastosPorCat(lancs, quem) {
+  const res = {};
+  CATS.forEach(c => res[c] = 0);
+  lancs.forEach(r => {
+    if (r['TIPO'] !== 'Despesa') return;
+    if (quem && r['QUEM PAGOU'].toLowerCase() !== quem.toLowerCase()) return;
+    const cat = r['CATEGORIA'] || 'Outros';
+    if (res[cat] !== undefined) res[cat] += parseFloat(r['VALOR']||0);
+    else res[cat] = parseFloat(r['VALOR']||0);
+  });
+  return res;
+}
+
+function receita(lancs, quem) {
+  return soma(lancs.filter(r => r['TIPO']==='Receita' && (!quem || r['QUEM PAGOU'].toLowerCase()===quem.toLowerCase())).map(r=>parseFloat(r['VALOR']||0)));
+}
+
+// ─── RENDER TUDO ─────────────────────────────────────────────────────────────
+function renderTudo() {
+  if (!mesSelecionado) return;
+  const curTab = document.querySelector('.tab-content.active')?.id?.replace('tab-','');
+  if (curTab === 'geral') renderGeral();
+  else if (curTab === 'equilibrio') renderEquilibrio();
+  else if (curTab === 'metas') renderMetas();
+  else if (curTab === 'rapha') renderPessoa('rapha');
+  else if (curTab === 'fernanda') renderPessoa('fernanda');
+  else if (curTab === 'lancamentos') renderLancamentos();
+  else if (curTab === 'parcelas') renderParcelas();
+  else if (curTab === 'pagamentos') renderPagamentos();
+}
+
+// ─── GERAL ───────────────────────────────────────────────────────────────────
+function renderGeral() {
+  const lancs = lancamentosDOMes(mesSelecionado);
+  const [mm, yyyy] = mesSelecionado.split('/');
+  const mesesNomes = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  document.getElementById('title-geral').textContent = mesesNomes[parseInt(mm)-1] + ' ' + yyyy;
+
+  if (lancs.length === 0) {
+    document.getElementById('metrics-geral').innerHTML = vazioHTML('Nenhum lançamento neste mês','Adicione dados na planilha do Google Sheets e clique em Atualizar.');
+    return;
+  }
+
+  const gR = gastosPorCat(lancs, 'Rapha');
+  const gF = gastosPorCat(lancs, 'Fernanda');
+  const totR = soma(Object.values(gR));
+  const totF = soma(Object.values(gF));
+  const totGasto = totR + totF;
+  const recTotal = receita(lancs, null);
+  const saldo = recTotal - totGasto;
+
+  // Mês anterior para tendência
+  const idxMes = mesesDisponiveis.indexOf(mesSelecionado);
+  let tendGasto = '', tendSaldo = '';
+  if (idxMes > 0) {
+    const lPrev = lancamentosDOMes(mesesDisponiveis[idxMes-1]);
+    const gPrev = soma(lPrev.filter(r=>r['TIPO']==='Despesa').map(r=>parseFloat(r['VALOR']||0)));
+    const sPrev = receita(lPrev,null) - gPrev;
+    tendGasto = trendBadge(totGasto, gPrev, true);
+    tendSaldo = trendBadge(saldo, sPrev, false);
+  }
+
+  document.getElementById('metrics-geral').innerHTML = `
+    <div class="metric"><div class="metric-label">Receita total</div><div class="metric-value green">${fmt(recTotal)}</div><div class="metric-sub">Rapha + Fernanda</div></div>
+    <div class="metric"><div class="metric-label">Total gasto</div><div class="metric-value red">${fmt(totGasto)}</div><div class="metric-sub">${tendGasto}</div></div>
+    <div class="metric"><div class="metric-label">Saldo do mês</div><div class="metric-value ${saldo>=0?'green':'red'}">${fmt(saldo)}</div><div class="metric-sub">${tendSaldo}</div></div>
+    <div class="metric"><div class="metric-label">Lançamentos</div><div class="metric-value blue">${lancs.length}</div><div class="metric-sub">registros no mês</div></div>`;
+
+  // Gráfico rosca categorias
+  const totCats = CATS.map(c=>(gR[c]||0)+(gF[c]||0));
+  document.getElementById('leg-cat').innerHTML = CATS.map((c,i)=>`<span class="legend-item"><span class="legend-dot" style="background:${CAT_COLORS[i]}"></span>${c} ${fmt(totCats[i])}</span>`).join('');
+  mkChart('cCat',{type:'doughnut',data:{labels:CATS,datasets:[{data:totCats,backgroundColor:CAT_COLORS,borderWidth:2,borderColor:'#fff',hoverOffset:5}]},options:{responsive:true,maintainAspectRatio:false,cutout:'65%',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' '+fmt(c.raw)}}}}});
+
+  // Barras Rapha vs Fernanda
+  mkChart('cPes',{type:'bar',data:{labels:CATS,datasets:[{label:'Rapha',data:CATS.map(c=>gR[c]||0),backgroundColor:'#2563EB',borderRadius:4,borderSkipped:false},{label:'Fernanda',data:CATS.map(c=>gF[c]||0),backgroundColor:'#DB2777',borderRadius:4,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{font:{size:9},autoSkip:false,maxRotation:35}},y:{ticks:{callback:v=>'R$'+v.toLocaleString('pt-BR'),font:{size:10}}}}}});
+
+  // Linha evolução
+  const recArr = mesesDisponiveis.map(m=>receita(lancamentosDOMes(m),null));
+  const gastArr = mesesDisponiveis.map(m=>soma(lancamentosDOMes(m).filter(r=>r['TIPO']==='Despesa').map(r=>parseFloat(r['VALOR']||0))));
+  const saldArr = recArr.map((r,i)=>r-gastArr[i]);
+  const labels = mesesDisponiveis.map(m=>{const [mm2]=m.split('/');return ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'][parseInt(mm2)-1];});
+  mkChart('cEvol',{type:'line',data:{labels,datasets:[{label:'Receitas',data:recArr,borderColor:'#16A34A',tension:.3,fill:false,pointRadius:4,borderWidth:2},{label:'Despesas',data:gastArr,borderColor:'#DC2626',borderDash:[4,3],tension:.3,fill:false,pointRadius:4,borderWidth:2},{label:'Saldo',data:saldArr,borderColor:'#2563EB',tension:.3,fill:false,pointRadius:4,borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>'R$'+v.toLocaleString('pt-BR'),font:{size:10}}}}}});
+}
+
+// ─── EQUILÍBRIO ──────────────────────────────────────────────────────────────
+function renderEquilibrio() {
+  const lancs = lancamentosDOMes(mesSelecionado);
+  const gR = gastosPorCat(lancs,'Rapha');
+  const gF = gastosPorCat(lancs,'Fernanda');
+  const totR = soma(Object.values(gR));
+  const totF = soma(Object.values(gF));
+  const diff = Math.abs(totR - totF);
+  const quemPagouMais = totR >= totF ? 'Rapha' : 'Fernanda';
+  const quemRecebe = totR >= totF ? 'Fernanda' : 'Rapha';
+  const cor = totR >= totF ? 'blue' : 'pink';
+  const cor2 = totR >= totF ? 'pink' : 'blue';
+
+  // Responsabilidade
+  const respR = soma(lancs.filter(r=>r['TIPO']==='Despesa'&&r['RESPONSÁVEL']==='Rapha').map(r=>parseFloat(r['VALOR']||0)));
+  const respF = soma(lancs.filter(r=>r['TIPO']==='Despesa'&&r['RESPONSÁVEL']==='Fernanda').map(r=>parseFloat(r['VALOR']||0)));
+  const respComp = soma(lancs.filter(r=>r['TIPO']==='Despesa'&&r['RESPONSÁVEL']==='Compartilhado').map(r=>parseFloat(r['VALOR']||0)));
+  const respDiff = Math.abs(respR - respF - respComp/2);
+  const quemDeveResp = (respR + respComp/2) > respF ? 'Fernanda' : 'Rapha';
+
+  const totGasto = totR + totF;
+
+  document.getElementById('eq-content').innerHTML = `
+    <div class="grid2 mb">
+      <div class="eq-card ${cor}">
+        <div class="eq-label ${cor}">${quemPagouMais} pagou a mais</div>
+        <div class="eq-value ${cor}">${fmt(diff)}</div>
+        <div class="eq-desc ${cor}">${quemRecebe} deve R$ ${Math.round(diff/2).toLocaleString('pt-BR')} para equilibrar</div>
+      </div>
+      <div class="eq-card ${cor2}">
+        <div class="eq-label ${cor2}">Por responsabilidade</div>
+        <div class="eq-value ${cor2}">${fmt(respDiff)}</div>
+        <div class="eq-desc ${cor2}">${quemDeveResp} deve ajustar ${fmt(respDiff)}</div>
+      </div>
+    </div>
+    <div class="card mb">
+      <div class="card-title">Comparativo detalhado</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+        <div>
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px"><div class="avatar r">RA</div><div><div style="font-size:14px;font-weight:600;color:var(--text)">Rapha</div><div style="font-size:12px;color:var(--text-muted)">${pct(totR,totGasto)}% do total</div></div></div>
+          ${barraSimples('Pagou',totR,totGasto,'#2563EB')}
+          ${barraSimples('Responsável',respR+respComp/2,totGasto,'#93C5FD')}
+        </div>
+        <div>
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px"><div class="avatar f">FE</div><div><div style="font-size:14px;font-weight:600;color:var(--text)">Fernanda</div><div style="font-size:12px;color:var(--text-muted)">${pct(totF,totGasto)}% do total</div></div></div>
+          ${barraSimples('Pagou',totF,totGasto,'#DB2777')}
+          ${barraSimples('Responsável',respF+respComp/2,totGasto,'#F9A8D4')}
+        </div>
+      </div>
+    </div>`;
+
+  // Histórico
+  const eqHist = mesesDisponiveis.map(m=>{
+    const l=lancamentosDOMes(m);
+    const r=soma(Object.values(gastosPorCat(l,'Rapha')));
+    const f=soma(Object.values(gastosPorCat(l,'Fernanda')));
+    return r>f?r-f:-(f-r);
+  });
+  const labelsEq = mesesDisponiveis.map(m=>{const [mm2]=m.split('/');return ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'][parseInt(mm2)-1];});
+  mkChart('cEq',{type:'bar',data:{labels:labelsEq,datasets:[{label:'Diferença',data:eqHist,backgroundColor:eqHist.map(v=>v>=0?'#2563EB':'#DB2777'),borderRadius:4,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' '+fmt(Math.abs(c.raw))+(c.raw>=0?' (Rapha pagou mais)':' (Fernanda pagou mais)')}}},scales:{y:{ticks:{callback:v=>'R$'+Math.abs(v).toLocaleString('pt-BR'),font:{size:10}}}}}});
+}
+
+function barraSimples(label, val, max, cor) {
+  const p = max ? Math.min(pct(val,max),100) : 0;
+  return `<div class="bar-row"><span class="bar-label">${label}</span><div class="bar-track"><div class="bar-fill" style="width:${p}%;background:${cor}"></div></div><span class="bar-val">${fmt(val)}</span></div>`;
+}
+
+// ─── METAS ───────────────────────────────────────────────────────────────────
+function renderMetas() {
+  const lancs = lancamentosDOMes(mesSelecionado);
+  const gR = gastosPorCat(lancs,'Rapha');
+  const gF = gastosPorCat(lancs,'Fernanda');
+
+  // Metas hardcoded (idealmente viria de outra aba)
+  const METAS_VAL = {Moradia:2000,'Streaming & Assinaturas':120,Alimentação:1800,Transporte:800,Compras:1000,'Casa & Reformas':1500};
+
+  let html='', ok=0, att=0, over=0;
+  CATS.forEach((c,i)=>{
+    const gasto=(gR[c]||0)+(gF[c]||0);
+    const meta=METAS_VAL[c]||0;
+    const p=meta?Math.min(pct(gasto,meta),100):0;
+    const ratio=meta?gasto/meta:0;
+    const [cor,badge,status] = ratio>1?['#DC2626','over','Acima da meta']:ratio>0.85?['#D97706','warn','Atenção']:['#059669','ok','Dentro da meta'];
+    if(ratio>1) over++; else if(ratio>0.85) att++; else ok++;
+    html+=`<div class="meta-row">
+      <div class="meta-header">
+        <span class="meta-name" style="color:${CAT_COLORS[i]}">${c}</span>
+        <div style="display:flex;align-items:center;gap:8px"><span class="meta-status" style="color:${cor}">${status}</span><span class="badge ${badge}">${pct(gasto,meta||1)}%</span></div>
+      </div>
+      <div class="meta-track"><div class="meta-fill" style="width:${p}%;background:${cor}"></div></div>
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-muted);font-family:'DM Mono',monospace"><span>${fmt(gasto)} gasto</span><span>meta ${fmt(meta)}</span></div>
+    </div>`;
+  });
+  document.getElementById('metas-bars').innerHTML = html;
+  document.getElementById('metas-resumo').innerHTML = `
+    <div class="card" style="text-align:center"><div class="metric-value green">${ok}</div><div class="metric-label" style="margin-top:4px">Dentro da meta</div></div>
+    <div class="card" style="text-align:center"><div class="metric-value" style="color:var(--amber)">${att}</div><div class="metric-label" style="margin-top:4px">Em atenção</div></div>
+    <div class="card" style="text-align:center"><div class="metric-value red">${over}</div><div class="metric-label" style="margin-top:4px">Acima da meta</div></div>`;
+}
+
+// ─── PESSOA ──────────────────────────────────────────────────────────────────
+function renderPessoa(who) {
+  const nome = who === 'rapha' ? 'Rapha' : 'Fernanda';
+  const cor = who === 'rapha' ? '#2563EB' : '#DB2777';
+  const lancs = lancamentosDOMes(mesSelecionado);
+  const g = gastosPorCat(lancs, nome);
+  const totGasto = soma(Object.values(g));
+  const rec = receita(lancs, nome);
+  const saldo = rec - totGasto;
+
+  const idxMes = mesesDisponiveis.indexOf(mesSelecionado);
+  let tendG = '';
+  if (idxMes > 0) {
+    const gPrev = soma(Object.values(gastosPorCat(lancamentosDOMes(mesesDisponiveis[idxMes-1]), nome)));
+    tendG = trendBadge(totGasto, gPrev, true);
+  }
+
+  document.getElementById(`${who}-sub`).textContent = fmt(totGasto) + ' gastos no mês';
+  document.getElementById(`metrics-${who}`).innerHTML = `
+    <div class="metric"><div class="metric-label">Receita</div><div class="metric-value green">${fmt(rec)}</div></div>
+    <div class="metric"><div class="metric-label">Gasto total</div><div class="metric-value red">${fmt(totGasto)}</div><div class="metric-sub">${tendG}</div></div>
+    <div class="metric"><div class="metric-label">Saldo</div><div class="metric-value ${saldo>=0?'green':'red'}">${fmt(saldo)}</div></div>
+    <div class="metric"><div class="metric-label">% da renda</div><div class="metric-value blue">${pct(totGasto,rec||1)}%</div><div class="metric-sub" style="color:var(--text-faint)">comprometido</div></div>`;
+
+  const maxV = Math.max(...Object.values(g),1);
+  document.getElementById(`${who}-bars`).innerHTML = CATS.map((c,i)=>`<div class="bar-row"><span class="bar-label">${c}</span><div class="bar-track"><div class="bar-fill" style="width:${pct(g[c]||0,maxV)}%;background:${CAT_COLORS[i]}"></div></div><span class="bar-val">${fmt(g[c]||0)}</span></div>`).join('');
+
+  mkChart('c'+nome,{type:'doughnut',data:{labels:CATS,datasets:[{data:CATS.map(c=>g[c]||0),backgroundColor:CAT_COLORS,borderWidth:2,borderColor:'#fff'}]},options:{responsive:true,maintainAspectRatio:false,cutout:'62%',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' '+fmt(c.raw)}}}}});
+}
+
+// ─── LANÇAMENTOS ─────────────────────────────────────────────────────────────
+function renderLancamentos() {
+  const lancs = lancamentosDOMes(mesSelecionado);
+  if (!lancs.length) { document.getElementById('lanc-content').innerHTML = vazioHTML('Nenhum lançamento','Adicione registros na sua planilha.'); return; }
+  const rows = lancs.map(r=>{
+    const quem = r['QUEM PAGOU']||'';
+    const tipo = r['TIPO']||'';
+    const val = parseFloat(r['VALOR']||0);
+    return `<tr>
+      <td>${r['DATA']||''}</td>
+      <td>${r['DESCRIÇÃO']||''}</td>
+      <td>${r['CATEGORIA']||''}</td>
+      <td><span class="badge ${quem.toLowerCase()==='rapha'?'rapha':'fernanda'}">${quem}</span></td>
+      <td><span class="badge ${quem.toLowerCase()==='rapha'?'rapha':'fernanda'}">${r['RESPONSÁVEL']||''}</span></td>
+      <td><span class="badge ${tipo==='Receita'?'ok':'over'}">${tipo}</span></td>
+      <td class="mono" style="text-align:right;color:${tipo==='Receita'?'var(--green)':'var(--text)'}">${fmt(val)}</td>
+      <td>${r['FORMA DE PGTO']||''}</td>
+    </tr>`;
+  }).join('');
+  document.getElementById('lanc-content').innerHTML=`<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Data</th><th>Descrição</th><th>Categoria</th><th>Quem pagou</th><th>Responsável</th><th>Tipo</th><th style="text-align:right">Valor</th><th>Forma</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+
+// ─── PARCELAS ────────────────────────────────────────────────────────────────
+function renderParcelas() {
+  const hoje = new Date();
+  const em7 = new Date(hoje); em7.setDate(em7.getDate()+7);
+  const parcelados = todosLancamentos.filter(r=>r['PARCELADO?']==='Sim'&&r['PARCELAMENTO']);
+  if (!parcelados.length) { document.getElementById('parc-content').innerHTML = vazioHTML('Nenhuma parcela','Registros com "Parcelado? = Sim" aparecerão aqui.'); return; }
+  const rows = parcelados.map(r=>{
+    const vd = parseDateBR(r['VENCIMENTO']);
+    const urgente = vd && vd <= em7;
+    const quem = r['QUEM PAGOU']||'';
+    return `<tr>
+      <td style="font-weight:500">${r['DESCRIÇÃO']||''}</td>
+      <td><span class="badge ${quem.toLowerCase()==='rapha'?'rapha':'fernanda'}">${quem}</span></td>
+      <td>${r['PARCELAMENTO']||''}</td>
+      <td style="color:${urgente?'var(--red)':'var(--text)'};font-weight:${urgente?'600':'400'}">${r['VENCIMENTO']||''}${urgente?' ⚑':''}</td>
+      <td class="mono" style="text-align:right">${fmt(parseFloat(r['VALOR']||0))}</td>
+    </tr>`;
+  }).join('');
+  document.getElementById('parc-content').innerHTML=`<table class="tbl"><thead><tr><th>Descrição</th><th>Quem</th><th>Parcela</th><th>Vencimento</th><th style="text-align:right">Valor/mês</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+// ─── PAGAMENTOS ──────────────────────────────────────────────────────────────
+function renderPagamentos() {
+  const lancs = lancamentosDOMes(mesSelecionado).filter(r=>r['TIPO']==='Despesa');
+  const totP = PGTOS.map(p=>soma(lancs.filter(r=>r['FORMA DE PGTO']===p).map(r=>parseFloat(r['VALOR']||0))));
+  const totR = PGTOS.map(p=>soma(lancs.filter(r=>r['FORMA DE PGTO']===p&&r['QUEM PAGOU']==='Rapha').map(r=>parseFloat(r['VALOR']||0))));
+  const totF = PGTOS.map(p=>soma(lancs.filter(r=>r['FORMA DE PGTO']===p&&r['QUEM PAGOU']==='Fernanda').map(r=>parseFloat(r['VALOR']||0))));
+  const grand = soma(totP)||1;
+
+  document.getElementById('pgto-cards').innerHTML = PGTOS.map((p,i)=>`<div class="pgto-card"><div class="pgto-val">${fmt(totP[i])}</div><div class="pgto-lbl">${p}</div><div class="pgto-pct">${pct(totP[i],grand)}% do total</div></div>`).join('');
+
+  mkChart('cPgto',{type:'doughnut',data:{labels:PGTOS,datasets:[{data:totP,backgroundColor:PGTO_COLORS,borderWidth:2,borderColor:'#fff'}]},options:{responsive:true,maintainAspectRatio:false,cutout:'62%',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' '+fmt(c.raw)}}}}});
+  mkChart('cPgtoPes',{type:'bar',data:{labels:PGTOS,datasets:[{label:'Rapha',data:totR,backgroundColor:'#2563EB',borderRadius:4,borderSkipped:false},{label:'Fernanda',data:totF,backgroundColor:'#DB2777',borderRadius:4,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{font:{size:11}}},y:{ticks:{callback:v=>'R$'+v.toLocaleString('pt-BR'),font:{size:10}}}}}});
+}
+
+// ─── HELPERS ──────────────────────────────────────────────────────────────────
+function trendBadge(cur, prev, inverso) {
+  if (!prev) return '';
+  const d = Math.round(((cur-prev)/prev)*100);
+  if (d === 0) return '<span class="trend eq">= mês ant.</span>';
+  const subindo = d > 0;
+  const ruim = inverso ? subindo : !subindo;
+  const cls = ruim ? 'up' : 'dn';
+  return `<span class="trend ${cls}">${subindo?'+':''}${d}% vs mês ant.</span>`;
+}
+
+function vazioHTML(title, desc) {
+  return `<div class="empty"><div class="empty-icon">📊</div><div class="empty-title">${title}</div><div class="empty-desc">${desc}</div></div>`;
+}
+
+function mostrarErro() {
+  document.getElementById('metrics-geral').innerHTML = `<div class="empty" style="grid-column:span 4"><div class="empty-icon">⚠️</div><div class="empty-title">Não foi possível carregar os dados</div><div class="empty-desc">Verifique se a planilha está publicada na web e tente novamente.</div></div>`;
+}
+
+// ─── NAVEGAÇÃO ────────────────────────────────────────────────────────────────
+function setTab(tab, el) {
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  el.classList.add('active');
+  document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+  document.getElementById('tab-'+tab).classList.add('active');
+  renderTudo();
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+carregarDados();
+</script>
+</body>
+</html>

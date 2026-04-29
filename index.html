@@ -181,9 +181,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
     <div class="login-logo">🏠</div>
     <div class="login-title">Finanças Casa</div>
     <div class="login-sub">Rapha & Fernanda — acesso restrito</div>
-    <input class="login-input" type="password" id="login-senha" placeholder="Digite a senha"
-      onkeydown="if(event.key==='Enter')tentarLogin()">
-    <button class="login-btn" onclick="tentarLogin()">Entrar</button>
+    <input class="login-input" type="password" id="login-senha" placeholder="Digite a senha">
+    <button class="login-btn" id="login-btn">Entrar</button>
     <div class="login-error" id="login-error"></div>
     <div class="login-hint">Senha padrão: <strong>casa2025</strong></div>
   </div>
@@ -374,29 +373,44 @@ let proximaAt  = null;
 // LOGIN
 // ══════════════════════════════════════════════════════
 function tentarLogin() {
-  if (document.getElementById('login-senha').value === SENHA) {
-    sessionStorage.setItem('auth','ok');
-    document.getElementById('login-screen').style.display='none';
-    document.getElementById('app').style.display='flex';
-    iniciar();
-  } else {
-    document.getElementById('login-error').textContent='Senha incorreta.';
-    document.getElementById('login-senha').value='';
-    document.getElementById('login-senha').focus();
+  try {
+    const campo = document.getElementById('login-senha');
+    const erro  = document.getElementById('login-error');
+    if (!campo) return;
+    const val = campo.value || '';
+    if (val.trim() === SENHA) {
+      try { sessionStorage.setItem('auth','ok'); } catch(_) {}
+      document.getElementById('login-screen').style.display = 'none';
+      document.getElementById('app').style.display = 'flex';
+      iniciar();
+    } else {
+      erro.textContent = val.trim() === '' ? 'Digite a senha.' : 'Senha incorreta.';
+      campo.value = '';
+      campo.focus();
+    }
+  } catch(e) {
+    console.error('Erro no login:', e);
   }
 }
+
 function sair() {
-  sessionStorage.removeItem('auth');
+  try { sessionStorage.removeItem('auth'); } catch(_) {}
   clearInterval(autoTimer);
-  document.getElementById('app').style.display='none';
-  document.getElementById('login-screen').style.display='flex';
-  document.getElementById('login-senha').value='';
-  document.getElementById('login-error').textContent='';
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('login-senha').value = '';
+  document.getElementById('login-error').textContent = '';
 }
-if (sessionStorage.getItem('auth')==='ok') {
-  document.getElementById('login-screen').style.display='none';
-  document.getElementById('app').style.display='flex';
-}
+
+// Verificar sessão anterior
+(function(){
+  try {
+    if (sessionStorage.getItem('auth') === 'ok') {
+      document.getElementById('login-screen').style.display = 'none';
+      document.getElementById('app').style.display = 'flex';
+    }
+  } catch(_) {}
+})();
 
 // ══════════════════════════════════════════════════════
 // FETCH CSV
@@ -880,7 +894,20 @@ function setTab(tab,el){
 // ══════════════════════════════════════════════════════
 // ARRANQUE
 // ══════════════════════════════════════════════════════
-if(sessionStorage.getItem('auth')==='ok')iniciar();
+// Conectar eventos do login via JS puro (mais confiável que onclick inline)
+document.addEventListener('DOMContentLoaded', function() {
+  const btn   = document.getElementById('login-btn');
+  const input = document.getElementById('login-senha');
+  if (btn)   btn.addEventListener('click', tentarLogin);
+  if (input) input.addEventListener('keydown', function(e){ if(e.key==='Enter') tentarLogin(); });
+});
+
+// Arranque final
+(function(){
+  try {
+    if (sessionStorage.getItem('auth') === 'ok') iniciar();
+  } catch(_) {}
+})();
 </script>
 </body>
 </html>

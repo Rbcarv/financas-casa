@@ -500,8 +500,8 @@ async function carregarConfig() {
     const rows=parseCSV(await fetchCSV(URL_CONFIG));
     const cats=[],cores=[],metas={},pgtos=[],pgto_cores=[];
     rows.forEach(r=>{
-      if(r['CATEGORIAS']&&r['CATEGORIAS']!=='CATEGORIAS'){cats.push(r['CATEGORIAS']);cores.push(r['CORES']?.startsWith('#')?r['CORES']:CORES_PADRAO[cats.length-1]||'#888');}
-      if(r['FORMAS_PGTO']&&r['FORMAS_PGTO']!=='FORMAS_PGTO'){pgtos.push(r['FORMAS_PGTO']);pgto_cores.push(r['CORES_PGTO']?.startsWith('#')?r['CORES_PGTO']:CORES_PADRAO[pgtos.length-1]||'#888');}
+      if(r['CATEGORIAS']&&r['CATEGORIAS']!=='CATEGORIAS'){cats.push(r['CATEGORIAS']);cores.push(r['CORES']&&r['CORES'].startsWith('#')?r['CORES']:CORES_PADRAO[cats.length-1]||'#888');}
+      if(r['FORMAS_PGTO']&&r['FORMAS_PGTO']!=='FORMAS_PGTO'){pgtos.push(r['FORMAS_PGTO']);pgto_cores.push(r['CORES_PGTO']&&r['CORES_PGTO'].startsWith('#')?r['CORES_PGTO']:CORES_PADRAO[pgtos.length-1]||'#888');}
       if(r['METAS_CAT']&&r['METAS_CAT']!=='METAS_CAT'&&r['VALOR'])metas[r['METAS_CAT']]=parseFloat(r['VALOR'].replace(/[^\d.,]/g,'').replace(',','.'))||0;
     });
     cfg={cats,cores,metas,pgtos,pgto_cores};
@@ -513,7 +513,7 @@ async function carregarConfig() {
 
 async function carregarLancamentos() {
   const text=await fetchCSV(URL_LANC);
-  rawLanc=parseCSV(text).filter(r=>r['DATA']?.trim());
+  rawLanc=parseCSV(text).filter(r=>r['DATA']&&r['DATA'].trim());
   lancExpand=expandirParcelas(rawLanc);
 
   const set=new Set();
@@ -601,13 +601,13 @@ function lancDoMes(mes) {
 }
 
 // Valor efetivo do lançamento naquele mês (já calculado na expansão)
-function valEfetivo(r){return r._valParcela??parseFloat((r['VALOR TOTAL']||r['VALOR']||'0').replace(',','.'))||0;}
+function valEfetivo(r){return (r._valParcela!==undefined&&r._valParcela!==null)?r._valParcela:parseFloat((r['VALOR TOTAL']||r['VALOR']||'0').replace(',','.'))||0;}
 
 function gastosCat(lancs,pessoa){
   const res={};cfg.cats.forEach(c=>res[c]=0);
   lancs.forEach(r=>{
     if(r['TIPO']!=='Despesa')return;
-    if(pessoa&&r['QUEM PAGOU']?.toLowerCase()!==pessoa.toLowerCase())return;
+    if(pessoa&&r['QUEM PAGOU']&&r['QUEM PAGOU'].toLowerCase()!==pessoa.toLowerCase())return;
     const c=r['CATEGORIA']||'';
     if(res[c]!==undefined)res[c]+=valEfetivo(r);
   });
@@ -615,7 +615,7 @@ function gastosCat(lancs,pessoa){
 }
 
 function receitaTotal(lancs,pessoa){
-  return soma(lancs.filter(r=>r['TIPO']==='Receita'&&(!pessoa||r['QUEM PAGOU']?.toLowerCase()===pessoa.toLowerCase())).map(r=>valEfetivo(r)));
+  return soma(lancs.filter(r=>r['TIPO']==='Receita'&&(!pessoa||r['QUEM PAGOU']&&r['QUEM PAGOU'].toLowerCase()===pessoa.toLowerCase())).map(r=>valEfetivo(r)));
 }
 
 function mesToLabel(m){const[mm]=m.split('/');return MESES_ABREV[+mm-1];}
@@ -625,7 +625,7 @@ function mesToLabel(m){const[mm]=m.split('/');return MESES_ABREV[+mm-1];}
 // ══════════════════════════════════════════════════════
 function renderTudo(){
   if(!mesSel)return;
-  const tab=document.querySelector('.tab-content.active')?.id?.replace('tab-','');
+  const el=document.querySelector('.tab-content.active');const tab=el?el.id.replace('tab-',''):'';
   ({geral:renderGeral,equilibrio:renderEquilibrio,metas:renderMetas,rapha:()=>renderPessoa('rapha'),fernanda:()=>renderPessoa('fernanda'),lancamentos:renderLancamentos,parcelas:renderParcelas,estabelecimentos:renderEstabelecimentos,pagamentos:renderPagamentos}[tab]||renderGeral)();
 }
 
@@ -811,7 +811,7 @@ function renderParcelas(){
 
 // ── ESTABELECIMENTOS ──
 function renderEstabelecimentos(){
-  const lancs=lancDoMes(mesSel).filter(r=>r['TIPO']==='Despesa'&&r['ESTABELECIMENTO']?.trim());
+  const lancs=lancDoMes(mesSel).filter(r=>r['TIPO']==='Despesa'&&r['ESTABELECIMENTO']&&r['ESTABELECIMENTO'].trim());
 
   // Botões de filtro por categoria
   const cats=['Todos',...new Set(lancs.map(r=>r['CATEGORIA']||'').filter(Boolean))];

@@ -631,7 +631,7 @@ function lancDoMes(mes) {
 }
 
 // Valor efetivo do lançamento naquele mês (já calculado na expansão)
-function valEfetivo(r){return r._valParcela??parseFloat((r['VALOR TOTAL']||r['VALOR']||'0').replace(',','.'))||0;}
+function valEfetivo(r){return (r._valParcela!==undefined&&r._valParcela!==null)?r._valParcela:parseFloat((r['VALOR TOTAL']||r['VALOR']||'0').replace(',','.'))||0;}
 
 function gastosCat(lancs,pessoa){
   const res={};cfg.cats.forEach(c=>res[c]=0);

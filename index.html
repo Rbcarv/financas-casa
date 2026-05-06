@@ -181,10 +181,11 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
     <div class="login-logo">🏠</div>
     <div class="login-title">Finanças Casa</div>
     <div class="login-sub">Rapha & Fernanda — acesso restrito</div>
-    <input class="login-input" type="password" id="login-senha" placeholder="Digite a senha">
-    <button class="login-btn" id="login-btn">Entrar</button>
+    <input class="login-input" type="password" id="login-senha" placeholder="Digite a senha"
+      onkeydown="if(event.key==='Enter')tentarLogin()">
+    <button class="login-btn" onclick="tentarLogin()">Entrar</button>
     <div class="login-error" id="login-error"></div>
-    <div class="login-hint">Senha padrão: <strong> :) </strong></div>
+    <div class="login-hint">Senha padrão: <strong>casa2025</strong></div>
   </div>
 </div>
 
@@ -217,9 +218,17 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
       <div style="width:16px;height:16px;border-radius:50%;background:var(--rapha-light);border:1.5px solid var(--rapha);display:flex;align-items:center;justify-content:center;font-size:7px;font-weight:700;color:var(--rapha)">R</div>
       Rapha
     </div>
+    <div class="nav-item" onclick="setTab('compras-rapha',this)" style="padding-left:32px">
+      <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 2h1.5l1 6h7l1-5H5"/><circle cx="6.5" cy="13" r="1"/><circle cx="11.5" cy="13" r="1"/></svg>
+      Compras do Rapha
+    </div>
     <div class="nav-item" onclick="setTab('fernanda',this)">
       <div style="width:16px;height:16px;border-radius:50%;background:var(--fernanda-light);border:1.5px solid var(--fernanda);display:flex;align-items:center;justify-content:center;font-size:7px;font-weight:700;color:var(--fernanda)">F</div>
       Fernanda
+    </div>
+    <div class="nav-item" onclick="setTab('compras-fernanda',this)" style="padding-left:32px">
+      <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 2h1.5l1 6h7l1-5H5"/><circle cx="6.5" cy="13" r="1"/><circle cx="11.5" cy="13" r="1"/></svg>
+      Compras da Fernanda
     </div>
 
     <div class="nav-section">Detalhes</div>
@@ -291,6 +300,42 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
       <div class="page-header"><div style="display:flex;align-items:center;gap:12px"><div class="avatar f" style="width:44px;height:44px;font-size:15px">FE</div><div><div class="page-title">Fernanda</div><div class="page-sub" id="fernanda-sub">—</div></div></div></div>
       <div class="metrics" id="metrics-fernanda"></div>
       <div class="grid2"><div class="card"><div class="card-title">Por categoria</div><div id="fernanda-bars"></div></div><div class="card"><div class="card-title">Distribuição</div><div style="position:relative;height:230px"><canvas id="cFernanda"></canvas></div></div></div>
+    </div>
+
+    <!-- COMPRAS RAPHA -->
+    <div class="tab-content" id="tab-compras-rapha">
+      <div class="page-header">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div class="avatar r" style="width:44px;height:44px;font-size:15px">RA</div>
+          <div><div class="page-title">Compras do Rapha</div><div class="page-sub" id="compras-rapha-sub">—</div></div>
+        </div>
+      </div>
+      <div class="metrics" id="metrics-compras-rapha"></div>
+      <div class="card mb" style="margin-top:12px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+          <div class="card-title" style="margin-bottom:0">Todas as compras</div>
+          <div class="filter-bar" id="filtros-compras-rapha" style="margin-bottom:0"></div>
+        </div>
+        <div id="compras-rapha-content"></div>
+      </div>
+    </div>
+
+    <!-- COMPRAS FERNANDA -->
+    <div class="tab-content" id="tab-compras-fernanda">
+      <div class="page-header">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div class="avatar f" style="width:44px;height:44px;font-size:15px">FE</div>
+          <div><div class="page-title">Compras da Fernanda</div><div class="page-sub" id="compras-fernanda-sub">—</div></div>
+        </div>
+      </div>
+      <div class="metrics" id="metrics-compras-fernanda"></div>
+      <div class="card mb" style="margin-top:12px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+          <div class="card-title" style="margin-bottom:0">Todas as compras</div>
+          <div class="filter-bar" id="filtros-compras-fernanda" style="margin-bottom:0"></div>
+        </div>
+        <div id="compras-fernanda-content"></div>
+      </div>
     </div>
 
     <!-- LANÇAMENTOS -->
@@ -373,44 +418,29 @@ let proximaAt  = null;
 // LOGIN
 // ══════════════════════════════════════════════════════
 function tentarLogin() {
-  try {
-    const campo = document.getElementById('login-senha');
-    const erro  = document.getElementById('login-error');
-    if (!campo) return;
-    const val = campo.value || '';
-    if (val.trim() === SENHA) {
-      try { sessionStorage.setItem('auth','ok'); } catch(_) {}
-      document.getElementById('login-screen').style.display = 'none';
-      document.getElementById('app').style.display = 'flex';
-      iniciar();
-    } else {
-      erro.textContent = val.trim() === '' ? 'Digite a senha.' : 'Senha incorreta.';
-      campo.value = '';
-      campo.focus();
-    }
-  } catch(e) {
-    console.error('Erro no login:', e);
+  if (document.getElementById('login-senha').value === SENHA) {
+    sessionStorage.setItem('auth','ok');
+    document.getElementById('login-screen').style.display='none';
+    document.getElementById('app').style.display='flex';
+    iniciar();
+  } else {
+    document.getElementById('login-error').textContent='Senha incorreta.';
+    document.getElementById('login-senha').value='';
+    document.getElementById('login-senha').focus();
   }
 }
-
 function sair() {
-  try { sessionStorage.removeItem('auth'); } catch(_) {}
+  sessionStorage.removeItem('auth');
   clearInterval(autoTimer);
-  document.getElementById('app').style.display = 'none';
-  document.getElementById('login-screen').style.display = 'flex';
-  document.getElementById('login-senha').value = '';
-  document.getElementById('login-error').textContent = '';
+  document.getElementById('app').style.display='none';
+  document.getElementById('login-screen').style.display='flex';
+  document.getElementById('login-senha').value='';
+  document.getElementById('login-error').textContent='';
 }
-
-// Verificar sessão anterior
-(function(){
-  try {
-    if (sessionStorage.getItem('auth') === 'ok') {
-      document.getElementById('login-screen').style.display = 'none';
-      document.getElementById('app').style.display = 'flex';
-    }
-  } catch(_) {}
-})();
+if (sessionStorage.getItem('auth')==='ok') {
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('app').style.display='flex';
+}
 
 // ══════════════════════════════════════════════════════
 // FETCH CSV
@@ -500,8 +530,8 @@ async function carregarConfig() {
     const rows=parseCSV(await fetchCSV(URL_CONFIG));
     const cats=[],cores=[],metas={},pgtos=[],pgto_cores=[];
     rows.forEach(r=>{
-      if(r['CATEGORIAS']&&r['CATEGORIAS']!=='CATEGORIAS'){cats.push(r['CATEGORIAS']);cores.push(r['CORES']&&r['CORES'].startsWith('#')?r['CORES']:CORES_PADRAO[cats.length-1]||'#888');}
-      if(r['FORMAS_PGTO']&&r['FORMAS_PGTO']!=='FORMAS_PGTO'){pgtos.push(r['FORMAS_PGTO']);pgto_cores.push(r['CORES_PGTO']&&r['CORES_PGTO'].startsWith('#')?r['CORES_PGTO']:CORES_PADRAO[pgtos.length-1]||'#888');}
+      if(r['CATEGORIAS']&&r['CATEGORIAS']!=='CATEGORIAS'){cats.push(r['CATEGORIAS']);cores.push(r['CORES']?.startsWith('#')?r['CORES']:CORES_PADRAO[cats.length-1]||'#888');}
+      if(r['FORMAS_PGTO']&&r['FORMAS_PGTO']!=='FORMAS_PGTO'){pgtos.push(r['FORMAS_PGTO']);pgto_cores.push(r['CORES_PGTO']?.startsWith('#')?r['CORES_PGTO']:CORES_PADRAO[pgtos.length-1]||'#888');}
       if(r['METAS_CAT']&&r['METAS_CAT']!=='METAS_CAT'&&r['VALOR'])metas[r['METAS_CAT']]=parseFloat(r['VALOR'].replace(/[^\d.,]/g,'').replace(',','.'))||0;
     });
     cfg={cats,cores,metas,pgtos,pgto_cores};
@@ -513,7 +543,7 @@ async function carregarConfig() {
 
 async function carregarLancamentos() {
   const text=await fetchCSV(URL_LANC);
-  rawLanc=parseCSV(text).filter(r=>r['DATA']&&r['DATA'].trim());
+  rawLanc=parseCSV(text).filter(r=>r['DATA']?.trim());
   lancExpand=expandirParcelas(rawLanc);
 
   const set=new Set();
@@ -601,13 +631,13 @@ function lancDoMes(mes) {
 }
 
 // Valor efetivo do lançamento naquele mês (já calculado na expansão)
-function valEfetivo(r){return (r._valParcela!==undefined&&r._valParcela!==null)?r._valParcela:parseFloat((r['VALOR TOTAL']||r['VALOR']||'0').replace(',','.'))||0;}
+function valEfetivo(r){return r._valParcela??parseFloat((r['VALOR TOTAL']||r['VALOR']||'0').replace(',','.'))||0;}
 
 function gastosCat(lancs,pessoa){
   const res={};cfg.cats.forEach(c=>res[c]=0);
   lancs.forEach(r=>{
     if(r['TIPO']!=='Despesa')return;
-    if(pessoa&&r['QUEM PAGOU']&&r['QUEM PAGOU'].toLowerCase()!==pessoa.toLowerCase())return;
+    if(pessoa&&r['QUEM PAGOU']?.toLowerCase()!==pessoa.toLowerCase())return;
     const c=r['CATEGORIA']||'';
     if(res[c]!==undefined)res[c]+=valEfetivo(r);
   });
@@ -615,7 +645,7 @@ function gastosCat(lancs,pessoa){
 }
 
 function receitaTotal(lancs,pessoa){
-  return soma(lancs.filter(r=>r['TIPO']==='Receita'&&(!pessoa||r['QUEM PAGOU']&&r['QUEM PAGOU'].toLowerCase()===pessoa.toLowerCase())).map(r=>valEfetivo(r)));
+  return soma(lancs.filter(r=>r['TIPO']==='Receita'&&(!pessoa||r['QUEM PAGOU']?.toLowerCase()===pessoa.toLowerCase())).map(r=>valEfetivo(r)));
 }
 
 function mesToLabel(m){const[mm]=m.split('/');return MESES_ABREV[+mm-1];}
@@ -625,8 +655,8 @@ function mesToLabel(m){const[mm]=m.split('/');return MESES_ABREV[+mm-1];}
 // ══════════════════════════════════════════════════════
 function renderTudo(){
   if(!mesSel)return;
-  const el=document.querySelector('.tab-content.active');const tab=el?el.id.replace('tab-',''):'';
-  ({geral:renderGeral,equilibrio:renderEquilibrio,metas:renderMetas,rapha:()=>renderPessoa('rapha'),fernanda:()=>renderPessoa('fernanda'),lancamentos:renderLancamentos,parcelas:renderParcelas,estabelecimentos:renderEstabelecimentos,pagamentos:renderPagamentos}[tab]||renderGeral)();
+  const tab=document.querySelector('.tab-content.active')?.id?.replace('tab-','');
+  ({geral:renderGeral,equilibrio:renderEquilibrio,metas:renderMetas,rapha:()=>renderPessoa('rapha'),fernanda:()=>renderPessoa('fernanda'),'compras-rapha':()=>renderCompras('rapha'),'compras-fernanda':()=>renderCompras('fernanda'),lancamentos:renderLancamentos,parcelas:renderParcelas,estabelecimentos:renderEstabelecimentos,pagamentos:renderPagamentos}[tab]||renderGeral)();
 }
 
 // ── GERAL ──
@@ -739,6 +769,114 @@ function renderPessoa(who){
   mkChart('c'+nome,{type:'doughnut',data:{labels:cfg.cats,datasets:[{data:cfg.cats.map(c=>g[c]||0),backgroundColor:cfg.cores,borderWidth:2,borderColor:'#fff'}]},options:{responsive:true,maintainAspectRatio:false,cutout:'62%',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' '+fmt(c.raw)}}}}});
 }
 
+// ── COMPRAS POR PESSOA ──
+let comprasFiltro = { rapha: 'Todos', fernanda: 'Todos' };
+
+function renderCompras(who) {
+  const nome = who === 'rapha' ? 'Rapha' : 'Fernanda';
+  const cor  = who === 'rapha' ? 'var(--rapha)' : 'var(--fernanda)';
+  const cls  = who === 'rapha' ? 'rapha' : 'fernanda';
+
+  // Todos os lançamentos do mês desta pessoa (despesas)
+  const todos = lancDoMes(mesSel).filter(r =>
+    r['TIPO'] === 'Despesa' && r['QUEM PAGOU']?.toLowerCase() === who
+  );
+
+  // Subtotais
+  const totGeral   = soma(todos.map(valEfetivo));
+  const totParc    = soma(todos.filter(r => r._parcAtual).map(valEfetivo));
+  const totAVista  = totGeral - totParc;
+  const numCompras = todos.length;
+
+  document.getElementById(`compras-${who}-sub`).textContent =
+    `${numCompras} compra(s) · ${fmt(totGeral)} no mês`;
+
+  document.getElementById(`metrics-compras-${who}`).innerHTML = `
+    <div class="metric">
+      <div class="metric-label">Total gasto</div>
+      <div class="metric-value red">${fmt(totGeral)}</div>
+      <div class="metric-sub">${numCompras} lançamento(s)</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">À vista</div>
+      <div class="metric-value" style="color:${cor}">${fmt(totAVista)}</div>
+      <div class="metric-sub">pagamento único</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">Parcelado (mês)</div>
+      <div class="metric-value" style="color:#6D28D9">${fmt(totParc)}</div>
+      <div class="metric-sub">parcelas do mês</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">Categorias</div>
+      <div class="metric-value blue">${new Set(todos.map(r=>r['CATEGORIA'])).size}</div>
+      <div class="metric-sub">diferentes</div>
+    </div>`;
+
+  // Filtros de categoria
+  const cats = ['Todos', ...new Set(todos.map(r => r['CATEGORIA'] || '').filter(Boolean))];
+  const filtroAtual = comprasFiltro[who];
+  document.getElementById(`filtros-compras-${who}`).innerHTML = cats.map(c =>
+    `<button class="filter-btn ${c === filtroAtual ? 'active' : ''}" style="${c===filtroAtual?'background:'+cor+';border-color:'+cor:''}" onclick="setComprasFiltro('${who}','${c}')">${c}</button>`
+  ).join('');
+
+  // Lista filtrada
+  const lista = filtroAtual === 'Todos' ? todos : todos.filter(r => r['CATEGORIA'] === filtroAtual);
+
+  if (!lista.length) {
+    document.getElementById(`compras-${who}-content`).innerHTML =
+      vazioHTML('Nenhuma compra', 'Sem lançamentos para este filtro no mês selecionado.');
+    return;
+  }
+
+  // Ordenar por data desc
+  const sorted = [...lista].sort((a, b) => {
+    const da = parseDateBR(a['DATA']), db = parseDateBR(b['DATA']);
+    return (db || 0) - (da || 0);
+  });
+
+  const rows = sorted.map(r => {
+    const val = valEfetivo(r);
+    const parcBadge = r._parcAtual
+      ? `<span class="badge parc">${r._parcAtual}/${r._parcTotal}</span>` : '';
+    const separado = r['SEPARADO']?.toLowerCase() === 'sim';
+    return `<tr${separado ? ' style="opacity:.55"' : ''}>
+      <td style="color:var(--text-muted);font-size:12px">${r['DATA'] || ''}</td>
+      <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500">
+        ${r['DESCRIÇÃO'] || ''} ${parcBadge}
+        ${separado ? '<span class="badge" style="background:#f1f5f9;color:#94a3b8;font-size:10px">Separado</span>' : ''}
+      </td>
+      <td><span style="font-size:11px;color:var(--text-muted)">${r['CATEGORIA'] || '—'}</span></td>
+      <td style="font-size:12px;color:var(--text-muted)">${r['ESTABELECIMENTO'] || '—'}</td>
+      <td style="font-size:12px;color:var(--text-muted)">${r['FORMA DE PGTO'] || '—'}</td>
+      <td class="mono" style="text-align:right;font-weight:600;color:${cor}">${fmt(val)}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById(`compras-${who}-content`).innerHTML = `
+    <div style="overflow-x:auto">
+      <table class="tbl">
+        <thead><tr>
+          <th>Data</th><th>Descrição</th><th>Categoria</th>
+          <th>Estabelecimento</th><th>Forma</th>
+          <th style="text-align:right">Valor</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+        <tfoot>
+          <tr>
+            <td colspan="5" style="padding-top:12px;font-size:12px;font-weight:600;color:var(--text-muted)">Total (${lista.length} itens)</td>
+            <td class="mono" style="text-align:right;font-weight:700;color:${cor};padding-top:12px">${fmt(soma(lista.map(valEfetivo)))}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>`;
+}
+
+function setComprasFiltro(who, cat) {
+  comprasFiltro[who] = cat;
+  renderCompras(who);
+}
+
 // ── LANÇAMENTOS ──
 function renderLancamentos(){
   const lancs=lancDoMes(mesSel);
@@ -811,7 +949,7 @@ function renderParcelas(){
 
 // ── ESTABELECIMENTOS ──
 function renderEstabelecimentos(){
-  const lancs=lancDoMes(mesSel).filter(r=>r['TIPO']==='Despesa'&&r['ESTABELECIMENTO']&&r['ESTABELECIMENTO'].trim());
+  const lancs=lancDoMes(mesSel).filter(r=>r['TIPO']==='Despesa'&&r['ESTABELECIMENTO']?.trim());
 
   // Botões de filtro por categoria
   const cats=['Todos',...new Set(lancs.map(r=>r['CATEGORIA']||'').filter(Boolean))];
@@ -894,20 +1032,7 @@ function setTab(tab,el){
 // ══════════════════════════════════════════════════════
 // ARRANQUE
 // ══════════════════════════════════════════════════════
-// Conectar eventos do login via JS puro (mais confiável que onclick inline)
-document.addEventListener('DOMContentLoaded', function() {
-  const btn   = document.getElementById('login-btn');
-  const input = document.getElementById('login-senha');
-  if (btn)   btn.addEventListener('click', tentarLogin);
-  if (input) input.addEventListener('keydown', function(e){ if(e.key==='Enter') tentarLogin(); });
-});
-
-// Arranque final
-(function(){
-  try {
-    if (sessionStorage.getItem('auth') === 'ok') iniciar();
-  } catch(_) {}
-})();
+if(sessionStorage.getItem('auth')==='ok')iniciar();
 </script>
 </body>
 </html>

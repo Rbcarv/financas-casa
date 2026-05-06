@@ -261,9 +261,21 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
       <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12M2 8h8M2 12h10"/></svg>
       Lançamentos
     </div>
-    <div class="nav-item" onclick="setTab('parcelas',this)">
+    <div class="nav-item" onclick="setTab('parcelas-casal',this)">
       <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="3" width="14" height="10" rx="1.5"/><path d="M1 6h14"/></svg>
       Parcelas
+    </div>
+    <div class="nav-item" onclick="setTab('parcelas-casal',this)" style="padding-left:32px">
+      <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 8a3 3 0 100-6 3 3 0 000 6zM11 8a3 3 0 100-6 3 3 0 000 6zM1 14c0-2.2 1.8-4 4-4M9 14c0-2.2 1.8-4 4-4"/></svg>
+      Casal
+    </div>
+    <div class="nav-item" onclick="setTab('parcelas-rapha',this)" style="padding-left:32px">
+      <div style="width:16px;height:16px;border-radius:50%;background:var(--rapha-light);border:1.5px solid var(--rapha);display:flex;align-items:center;justify-content:center;font-size:7px;font-weight:700;color:var(--rapha)">R</div>
+      Rapha
+    </div>
+    <div class="nav-item" onclick="setTab('parcelas-fernanda',this)" style="padding-left:32px">
+      <div style="width:16px;height:16px;border-radius:50%;background:var(--fernanda-light);border:1.5px solid var(--fernanda);display:flex;align-items:center;justify-content:center;font-size:7px;font-weight:700;color:var(--fernanda)">F</div>
+      Fernanda
     </div>
     <div class="nav-item" onclick="setTab('estabelecimentos',this)">
       <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 6l6-4 6 4v7a1 1 0 01-1 1H3a1 1 0 01-1-1V6z"/><path d="M6 14V9h4v5"/></svg>
@@ -381,13 +393,48 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
       <div class="card"><div id="lanc-content"></div></div>
     </div>
 
-    <!-- PARCELAS -->
-    <div class="tab-content" id="tab-parcelas">
-      <div class="page-header"><div><div class="page-title">Parcelas</div><div class="page-sub">Todas as parcelas ativas com projeção futura</div></div></div>
-      <div class="card mb"><div id="parc-content"></div></div>
-      <div class="card" id="parc-timeline-card" style="display:none">
-        <div class="card-title">Projeção de parcelas — próximos meses</div>
-        <div style="position:relative;height:200px"><canvas id="cParcTimeline"></canvas></div>
+    <!-- PARCELAS CASAL -->
+    <div class="tab-content" id="tab-parcelas-casal">
+      <div class="page-header">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="width:44px;height:44px;border-radius:12px;background:#EEF2FF;display:flex;align-items:center;justify-content:center;font-size:20px">👫</div>
+          <div><div class="page-title">Parcelas do Casal</div><div class="page-sub">Compras compartilhadas — SEPARADO = Não</div></div>
+        </div>
+      </div>
+      <div class="card mb"><div id="parc-casal-content"></div></div>
+      <div class="card" id="parc-casal-timeline-card" style="display:none">
+        <div class="card-title">Projeção — próximos meses</div>
+        <div style="position:relative;height:200px"><canvas id="cParcCasalTimeline"></canvas></div>
+      </div>
+    </div>
+
+    <!-- PARCELAS RAPHA -->
+    <div class="tab-content" id="tab-parcelas-rapha">
+      <div class="page-header">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div class="avatar r" style="width:44px;height:44px;font-size:15px">RA</div>
+          <div><div class="page-title">Parcelas do Rapha</div><div class="page-sub">Compras separadas do Rapha — SEPARADO = Sim</div></div>
+        </div>
+      </div>
+      <div class="card mb"><div id="parc-rapha-content"></div></div>
+      <div class="card" id="parc-rapha-timeline-card" style="display:none">
+        <div class="card-title">Projeção — próximos meses</div>
+        <div style="position:relative;height:200px"><canvas id="cParcRaphaTimeline"></canvas></div>
+      </div>
+    </div>
+
+    <!-- PARCELAS FERNANDA -->
+    <div class="tab-content" id="tab-parcelas-fernanda">
+      <div class="page-header">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div class="avatar f" style="width:44px;height:44px;font-size:15px">FE</div>
+          <div><div class="page-title">Parcelas da Fernanda</div><div class="page-sub">Compras separadas da Fernanda — SEPARADO = Sim</div></div>
+        </div>
+      </div>
+      <div class="card mb"><div id="parc-fernanda-content"></div></div>
+      <div class="card" id="parc-fernanda-timeline-card" style="display:none">
+        <div class="card-title">Projeção — próximos meses</div>
+        <div style="position:relative;height:200px"><canvas id="cParcFernandaTimeline"></canvas></div>
       </div>
     </div>
 
@@ -518,34 +565,59 @@ function parseCSV(text) {
 // ══════════════════════════════════════════════════════
 // Para cada lançamento parcelado, gera N registros virtuais
 // (um por mês), cada um com o valor da parcela = VALOR TOTAL / N PARCELAS
+// Converte "MM/YYYY" para um objeto Date (dia 1)
+function parseMesRef(str) {
+  if (!str) return null;
+  const m = str.trim().match(/^(\d{1,2})\/(\d{4})$/);
+  if (!m) return null;
+  return new Date(parseInt(m[2]), parseInt(m[1])-1, 1);
+}
+
+function mesKeyDe(mes, ano) {
+  return `${String(mes+1).padStart(2,'0')}/${ano}`;
+}
+
 function expandirParcelas(lancs) {
   const resultado = [];
   for (const r of lancs) {
     const parcelado = r['PARCELADO?']==='Sim';
     const nParc     = parseInt(r['Nº PARCELAS']||r['PARCELAMENTO']||'1')||1;
     const valTotal  = parseFloat((r['VALOR TOTAL']||r['VALOR']||'0').replace(',','.'))||0;
+    const mesRefStr = (r['MÊS REF']||r['MES REF']||'').trim();
 
     if (!parcelado || nParc<=1) {
-      // Lançamento normal — usa valor direto
-      resultado.push({ ...r, _valParcela: valTotal, _parcAtual: null, _parcTotal: null });
+      // Lançamento simples — verifica MÊS REF
+      const mesRefDate = parseMesRef(mesRefStr);
+      const mesKey = mesRefDate
+        ? mesKeyDe(mesRefDate.getMonth(), mesRefDate.getFullYear())
+        : null; // deixa lancDoMes usar mesKeyDeData(DATA)
+      resultado.push({ ...r, _valParcela: valTotal, _parcAtual: null, _parcTotal: null, _mesKey: mesKey });
       continue;
     }
 
-    const dataInicial = parseDateBR(r['DATA']);
-    if (!dataInicial) { resultado.push({...r,_valParcela:valTotal,_parcAtual:null,_parcTotal:null}); continue; }
+    // Parcelado: mês inicial pode ser forçado pelo MÊS REF (1ª parcela)
+    const mesRefDate  = parseMesRef(mesRefStr);
+    const dataInicial = mesRefDate || parseDateBR(r['DATA']);
+    if (!dataInicial) { resultado.push({...r,_valParcela:valTotal,_parcAtual:null,_parcTotal:null,_mesKey:null}); continue; }
 
     const valParcela = valTotal / nParc;
+    const anoInicio  = dataInicial.getFullYear();
+    const mesInicio  = dataInicial.getMonth();
 
     for (let i=0; i<nParc; i++) {
-      const d = new Date(dataInicial.getFullYear(), dataInicial.getMonth()+i, dataInicial.getDate());
-      const mesKey = `${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+      const mes  = (mesInicio + i) % 12;
+      const ano  = anoInicio + Math.floor((mesInicio + i) / 12);
+      const mesKey = mesKeyDe(mes, ano);
+      // Data exibida: dia original, mas mês/ano da parcela
+      const diaOriginal = parseDateBR(r['DATA'])?.getDate() || 1;
+      const dataStr = `${String(diaOriginal).padStart(2,'0')}/${String(mes+1).padStart(2,'0')}/${ano}`;
       resultado.push({
         ...r,
-        DATA: `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`,
-        _mesKey:    mesKey,
-        _valParcela: valParcela,
-        _parcAtual:  i+1,
-        _parcTotal:  nParc,
+        DATA: dataStr,
+        _mesKey:       mesKey,
+        _valParcela:   valParcela,
+        _parcAtual:    i+1,
+        _parcTotal:    nParc,
         _dataOriginal: r['DATA'],
       });
     }
@@ -714,7 +786,7 @@ function mesToLabel(m){const[mm]=m.split('/');return MESES_ABREV[+mm-1];}
 function renderTudo(){
   if(!mesSel)return;
   const tab=document.querySelector('.tab-content.active')?.id?.replace('tab-','');
-  ({geral:renderGeral,equilibrio:renderEquilibrio,metas:renderMetas,rapha:()=>renderPessoa('rapha'),fernanda:()=>renderPessoa('fernanda'),'compras-rapha':()=>renderCompras('rapha'),'compras-fernanda':()=>renderCompras('fernanda'),lancamentos:renderLancamentos,parcelas:renderParcelas,estabelecimentos:renderEstabelecimentos,pagamentos:renderPagamentos,busca:()=>renderBusca(document.getElementById('searchInput').value)}[tab]||renderGeral)();
+  ({geral:renderGeral,equilibrio:renderEquilibrio,metas:renderMetas,rapha:()=>renderPessoa('rapha'),fernanda:()=>renderPessoa('fernanda'),'compras-rapha':()=>renderCompras('rapha'),'compras-fernanda':()=>renderCompras('fernanda'),lancamentos:renderLancamentos,'parcelas-casal':()=>renderParcelas('casal'),'parcelas-rapha':()=>renderParcelas('rapha'),'parcelas-fernanda':()=>renderParcelas('fernanda'),estabelecimentos:renderEstabelecimentos,pagamentos:renderPagamentos,busca:()=>renderBusca(document.getElementById('searchInput').value)}[tab]||renderGeral)();
 }
 
 // ── GERAL ──
@@ -978,52 +1050,164 @@ function renderLancamentos(){
 }
 
 // ── PARCELAS ──
-function renderParcelas(){
-  // Pega apenas os registros originais parcelados (não expandidos)
-  const parcelados=rawLanc.filter(r=>r['PARCELADO?']==='Sim'&&(parseInt(r['Nº PARCELAS']||r['PARCELAMENTO']||0)||0)>1);
-  const card=document.getElementById('parc-timeline-card');
+function renderParcelas(grupo) {
+  const isCasal = grupo === 'casal';
+  const cor      = grupo==='rapha' ? 'var(--rapha)' : grupo==='fernanda' ? 'var(--fernanda)' : '#6D28D9';
+  const corRgba  = grupo==='rapha' ? 'rgba(37,99,235,0.7)' : grupo==='fernanda' ? 'rgba(219,39,119,0.7)' : 'rgba(109,40,217,0.7)';
+  const chartMap = { casal:'cParcCasalTimeline', rapha:'cParcRaphaTimeline', fernanda:'cParcFernandaTimeline' };
+  const cId      = chartMap[grupo];
+  const contentId= 'parc-'+grupo+'-content';
+  const cardId   = 'parc-'+grupo+'-timeline-card';
+  const card     = document.getElementById(cardId);
 
-  if(!parcelados.length){document.getElementById('parc-content').innerHTML=vazioHTML('Nenhuma parcela','Registros com "Parcelado? = Sim" e "Nº PARCELAS > 1" aparecerão aqui.');card.style.display='none';return;}
+  const parcelados = rawLanc.filter(r => {
+    if (r['PARCELADO?'] !== 'Sim') return false;
+    if ((parseInt(r['Nº PARCELAS']||r['PARCELAMENTO']||0)||0) <= 1) return false;
+    const sep  = isSeparado(r);
+    if (isCasal) return !sep;
+    const quem = (r['QUEM PAGOU']||'').toLowerCase();
+    return sep && quem === grupo;
+  });
 
-  const hoje=new Date(),em7=new Date(hoje);em7.setDate(em7.getDate()+7);
-  const rows=parcelados.map(r=>{
-    const nParc=parseInt(r['Nº PARCELAS']||r['PARCELAMENTO']||1)||1;
-    const valTotal=parseFloat((r['VALOR TOTAL']||r['VALOR']||'0').replace(',','.'))||0;
-    const valParc=valTotal/nParc;
-    const dataInicio=parseDateBR(r['DATA']);
-    const dataFim=dataInicio?new Date(dataInicio.getFullYear(),dataInicio.getMonth()+nParc-1,dataInicio.getDate()):null;
-    const mesAtualIdx=dataInicio?Math.round((hoje-dataInicio)/(30*24*3600*1000)):0;
-    const parcAtual=Math.min(Math.max(mesAtualIdx+1,1),nParc);
-    const vd=dataFim,urg=vd&&vd<=em7;
-    const qcls=(r['QUEM PAGOU']||'').toLowerCase()==='rapha'?'rapha':'fernanda';
-    const fimStr=dataFim?`${String(dataFim.getDate()).padStart(2,'0')}/${String(dataFim.getMonth()+1).padStart(2,'0')}/${dataFim.getFullYear()}`:'—';
-    return`<tr>
+  if (!parcelados.length) {
+    document.getElementById(contentId).innerHTML = vazioHTML('Nenhuma parcela',
+      isCasal ? 'Parcelamentos do casal (SEPARADO = Não) aparecerão aqui.'
+              : `Parcelamentos de ${grupo.charAt(0).toUpperCase()+grupo.slice(1)} (SEPARADO = Sim) aparecerão aqui.`);
+    if (card) card.style.display = 'none';
+    return;
+  }
+
+  const hoje=new Date(), em7=new Date(hoje); em7.setDate(em7.getDate()+7);
+
+  const rows = parcelados.map(r => {
+    const nParc      = parseInt(r['Nº PARCELAS']||r['PARCELAMENTO']||1)||1;
+    const valTotal   = parseFloat((r['VALOR TOTAL']||r['VALOR']||'0').replace(',','.'))||0;
+    const valParc    = valTotal / nParc;
+    const mesRefDate = parseMesRef((r['MÊS REF']||r['MES REF']||'').trim());
+    const dataInicio = mesRefDate || parseDateBR(r['DATA']);
+    const dataFim    = dataInicio ? new Date(dataInicio.getFullYear(), dataInicio.getMonth()+nParc-1, dataInicio.getDate()) : null;
+    const mesAtualIdx= dataInicio ? Math.round((hoje-dataInicio)/(30*24*3600*1000)) : 0;
+    const parcAtual  = Math.min(Math.max(mesAtualIdx+1,1), nParc);
+    const urg        = dataFim && dataFim <= em7;
+    const qcls       = (r['QUEM PAGOU']||'').toLowerCase()==='rapha' ? 'rapha' : 'fernanda';
+    const fimStr     = dataFim ? `${String(dataFim.getDate()).padStart(2,'0')}/${String(dataFim.getMonth()+1).padStart(2,'0')}/${dataFim.getFullYear()}` : '—';
+    const mesRefLabel= (r['MÊS REF']||r['MES REF']||'').trim();
+    return `<tr>
       <td style="font-weight:500">${r['DESCRIÇÃO']||''}</td>
-      <td><span class="badge ${qcls}">${r['QUEM PAGOU']||''}</span></td>
+      ${isCasal ? `<td><span class="badge ${qcls}">${r['QUEM PAGOU']||''}</span></td>` : ''}
       <td><span class="badge parc">${parcAtual}/${nParc}</span></td>
-      <td class="mono">${fmt(valParc)}/mês</td>
+      <td class="mono" style="color:${cor}">${fmt(valParc)}/mês</td>
       <td class="mono">${fmt(valTotal)}</td>
+      <td style="font-size:11px;color:var(--text-muted)">${mesRefLabel||'—'}</td>
       <td style="color:${urg?'var(--red)':'var(--text-muted)'};font-weight:${urg?600:400}">${fimStr}${urg?' ⚑':''}</td>
     </tr>`;
   }).join('');
 
-  const totalMensal=soma(parcelados.map(r=>{const n=parseInt(r['Nº PARCELAS']||r['PARCELAMENTO']||1)||1;return(parseFloat((r['VALOR TOTAL']||r['VALOR']||'0').replace(',','.'))||0)/n;}));
-  document.getElementById('parc-content').innerHTML=`
+  const totalMensal = soma(parcelados.map(r => {
+    const n = parseInt(r['Nº PARCELAS']||r['PARCELAMENTO']||1)||1;
+    return (parseFloat((r['VALOR TOTAL']||r['VALOR']||'0').replace(',','.'))||0)/n;
+  }));
+
+  const thQuem = isCasal ? '<th>Quem</th>' : '';
+  document.getElementById(contentId).innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
       <span style="font-size:13px;color:var(--text-muted)">${parcelados.length} compra(s) parcelada(s)</span>
-      <span style="font-size:13px;font-weight:600;font-family:'DM Mono',monospace">${fmt(totalMensal)}/mês</span>
+      <span style="font-size:13px;font-weight:600;font-family:'DM Mono',monospace;color:${cor}">${fmt(totalMensal)}/mês</span>
     </div>
-    <div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Descrição</th><th>Quem</th><th>Progresso</th><th>Parcela</th><th>Total</th><th>Término</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+    <div style="overflow-x:auto">
+      <table class="tbl">
+        <thead><tr><th>Descrição</th>${thQuem}<th>Progresso</th><th>Parcela/mês</th><th>Total</th><th>Mês ref.</th><th>Término</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
 
-  // Gráfico de projeção: soma de parcelas por mês nos próximos 12 meses
-  card.style.display='block';
-  const proxMeses=[];
-  for(let i=0;i<12;i++){const d=new Date(hoje.getFullYear(),hoje.getMonth()+i,1);proxMeses.push(`${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`);}
-  const projData=proxMeses.map(mk=>soma(lancExpand.filter(r=>r._parcAtual&&(r._mesKey||mesKeyDeData(r['DATA']))===mk).map(valEfetivo)));
-  mkChart('cParcTimeline',{type:'bar',data:{labels:proxMeses.map(mesToLabel),datasets:[{label:'Parcelas',data:projData,backgroundColor:'rgba(109,40,217,0.7)',borderRadius:4,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' '+fmt(c.raw)}}},scales:{y:{ticks:{callback:v=>'R$'+v.toLocaleString('pt-BR'),font:{size:10}}}}}});
+  if (card) card.style.display = 'block';
+  const proxMeses = [];
+  for (let i=0;i<12;i++) {
+    const d = new Date(hoje.getFullYear(), hoje.getMonth()+i, 1);
+    proxMeses.push(`${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`);
+  }
+  const projData = proxMeses.map(mk => soma(
+    lancExpand.filter(r => {
+      if (!r._parcAtual) return false;
+      const sep  = isSeparado(r);
+      if (isCasal && sep) return false;
+      if (!isCasal) {
+        if (!sep) return false;
+        if ((r['QUEM PAGOU']||'').toLowerCase() !== grupo) return false;
+      }
+      return (r._mesKey||mesKeyDeData(r['DATA'])) === mk;
+    }).map(valEfetivo)
+  ));
+  mkChart(cId, {type:'bar',data:{labels:proxMeses.map(mesToLabel),datasets:[{label:'Parcelas',data:projData,backgroundColor:corRgba,borderRadius:4,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' '+fmt(c.raw)}}},scales:{y:{ticks:{callback:v=>'R$'+v.toLocaleString('pt-BR'),font:{size:10}}}}}});
 }
 
 // ── ESTABELECIMENTOS ──
+// ── BANCO DE ÍCONES DE ESTABELECIMENTOS ──
+// Adicione novos estabelecimentos aqui: chave é parte do nome (lowercase)
+const ESTAB_ICONS = {
+  // Mercados / Supermercados
+  'mercado livre':  { emoji: '🟡', bg: '#FFE600', label: 'Mercado Livre' },
+  'shopee':         { emoji: '🟠', bg: '#FF5722', label: 'Shopee' },
+  'pão de açúcar':  { emoji: '🍞', bg: '#E8000D', label: 'Pão de Açúcar' },
+  'pao de acucar':  { emoji: '🍞', bg: '#E8000D', label: 'Pão de Açúcar' },
+  'joanin':         { emoji: '🛒', bg: '#2E7D32', label: 'Joanin' },
+  'carrefour':      { emoji: '🛒', bg: '#004A97', label: 'Carrefour' },
+  'extra':          { emoji: '🛒', bg: '#F44336', label: 'Extra' },
+  'atacadão':       { emoji: '📦', bg: '#FF6F00', label: 'Atacadão' },
+  'hortifrutti':    { emoji: '🥦', bg: '#388E3C', label: 'Hortifrutti' },
+  // Delivery / Restaurantes
+  'ifood':          { emoji: '🛵', bg: '#EA1D2C', label: 'iFood' },
+  'rappi':          { emoji: '🟡', bg: '#FF441F', label: 'Rappi' },
+  'pizzaria':       { emoji: '🍕', bg: '#D84315', label: 'Pizzaria' },
+  'pizza':          { emoji: '🍕', bg: '#D84315', label: 'Pizza' },
+  'burger':         { emoji: '🍔', bg: '#E65100', label: 'Burger' },
+  'mcdonalds':      { emoji: '🍟', bg: '#FFC107', label: "McDonald's" },
+  "mcdonald's":     { emoji: '🍟', bg: '#FFC107', label: "McDonald's" },
+  'subway':         { emoji: '🥖', bg: '#009B48', label: 'Subway' },
+  'padaria':        { emoji: '🥐', bg: '#795548', label: 'Padaria' },
+  // Streaming / Assinaturas
+  'netflix':        { emoji: '🎬', bg: '#E50914', label: 'Netflix' },
+  'spotify':        { emoji: '🎵', bg: '#1DB954', label: 'Spotify' },
+  'amazon':         { emoji: '📦', bg: '#FF9900', label: 'Amazon' },
+  'prime':          { emoji: '🎬', bg: '#00A8E0', label: 'Prime Video' },
+  'disney':         { emoji: '✨', bg: '#113CCF', label: 'Disney+' },
+  'youtube':        { emoji: '▶️', bg: '#FF0000', label: 'YouTube' },
+  'apple':          { emoji: '🍎', bg: '#555', label: 'Apple' },
+  'globoplay':      { emoji: '📺', bg: '#EE0000', label: 'Globoplay' },
+  // Farmácia / Saúde
+  'farmácia':       { emoji: '💊', bg: '#0288D1', label: 'Farmácia' },
+  'farmacia':       { emoji: '💊', bg: '#0288D1', label: 'Farmácia' },
+  'drogasil':       { emoji: '💊', bg: '#E53935', label: 'Drogasil' },
+  'droga raia':     { emoji: '💊', bg: '#E53935', label: 'Droga Raia' },
+  'ultrafarma':     { emoji: '💊', bg: '#1565C0', label: 'Ultrafarma' },
+  // Transporte
+  'uber':           { emoji: '🚗', bg: '#000', label: 'Uber' },
+  '99':             { emoji: '🚕', bg: '#FFD700', label: '99' },
+  'posto':          { emoji: '⛽', bg: '#F57F17', label: 'Posto' },
+  'shell':          { emoji: '⛽', bg: '#D32F2F', label: 'Shell' },
+  'ipiranga':       { emoji: '⛽', bg: '#FF8F00', label: 'Ipiranga' },
+  // Outros
+  'americanas':     { emoji: '🛍️', bg: '#CC0000', label: 'Americanas' },
+  'magazine':       { emoji: '🛍️', bg: '#0A5C96', label: 'Magazine Luiza' },
+  'casas bahia':    { emoji: '🛍️', bg: '#2979FF', label: 'Casas Bahia' },
+  'steam':          { emoji: '🎮', bg: '#1A237E', label: 'Steam' },
+  'nubank':         { emoji: '💜', bg: '#820AD1', label: 'Nubank' },
+};
+
+function getEstabIcon(nome) {
+  if (!nome) return { emoji: '🏪', bg: '#90A4AE' };
+  const low = nome.toLowerCase();
+  for (const [key, val] of Object.entries(ESTAB_ICONS)) {
+    if (low.includes(key)) return val;
+  }
+  // Gera cor e inicial para estabelecimentos não mapeados
+  let hash = 0;
+  for (const c of nome) hash = c.charCodeAt(0) + ((hash<<5)-hash);
+  const hue = Math.abs(hash) % 360;
+  return { emoji: nome.charAt(0).toUpperCase(), bg: `hsl(${hue},55%,42%)`, isInitial: true };
+}
+
 function renderEstabelecimentos(){
   const lancs=lancDoMes(mesSel).filter(r=>r['TIPO']==='Despesa'&&r['ESTABELECIMENTO']?.trim());
 
@@ -1052,6 +1236,15 @@ function renderEstabelecimentos(){
   const sorted=Object.entries(map).sort((a,b)=>b[1].total-a[1].total);
   const nomes=sorted.map(([k])=>k),vals=sorted.map(([,v])=>v.total);
   const grand=soma(vals)||1,maxV=vals[0]||1;
+  // injeta ícones no ranking
+  const barHtml = sorted.slice(0,10).map(([nome,v])=>{
+    const ic = getEstabIcon(nome);
+    const icEl = ic.isInitial
+      ? `<div style="width:28px;height:28px;border-radius:8px;background:${ic.bg};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0">${ic.emoji}</div>`
+      : `<div style="width:28px;height:28px;border-radius:8px;background:${ic.bg}22;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">${ic.emoji}</div>`;
+    return `<div class="bar-row" style="align-items:center;gap:8px">${icEl}<span class="bar-label" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis">${nome}</span><div class="bar-track" style="width:80px"><div class="bar-fill" style="width:${pct(v.total,maxV)}%;background:var(--rapha)"></div></div><span class="bar-val">${fmt(v.total)}</span></div>`;
+  }).join('');
+  document.getElementById('estab-bars').innerHTML = barHtml || vazioHTML('Sem dados','');
 
   // Métricas
   document.getElementById('metrics-estab').innerHTML=`

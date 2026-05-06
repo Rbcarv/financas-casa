@@ -649,10 +649,20 @@ function gastosCat(lancs,pessoa){
   lancs.forEach(r=>{
     if(r['TIPO']!=='Despesa')return;
     if(pessoa&&r['QUEM PAGOU']?.toLowerCase()!==pessoa.toLowerCase())return;
-    const c=r['CATEGORIA']||'';
-    if(res[c]!==undefined)res[c]+=valEfetivo(r);
+    const c=r['CATEGORIA']||'Outros';
+    if(res[c]!==undefined) res[c]+=valEfetivo(r);
+    else { res[c]=(res[c]||0)+valEfetivo(r); } // categoria fora da config também conta
   });
   return res;
+}
+
+// Soma total de despesas do mês — inclui parcelas de meses anteriores corretamente
+function totalDespesas(lancs,pessoa){
+  return soma(lancs.filter(r=>{
+    if(r['TIPO']!=='Despesa')return false;
+    if(pessoa&&r['QUEM PAGOU']?.toLowerCase()!==pessoa.toLowerCase())return false;
+    return true;
+  }).map(valEfetivo));
 }
 
 function receitaTotal(lancs,pessoa){
@@ -679,12 +689,12 @@ function renderGeral(){
   if(!lancs.length){document.getElementById('metrics-geral').innerHTML=`<div style="grid-column:span 4">${vazioHTML('Nenhum lançamento neste mês','Adicione dados na planilha e clique em Atualizar.')}</div>`;return;}
 
   const gR=gastosCat(lancs,'Rapha'),gF=gastosCat(lancs,'Fernanda');
-  const totR=soma(Object.values(gR)),totF=soma(Object.values(gF));
+  const totR=totalDespesas(lancs,'Rapha'),totF=totalDespesas(lancs,'Fernanda');
   const totG=totR+totF,rec=receitaTotal(lancs,null),saldo=rec-totG;
 
   const idx=mesesDisp.indexOf(mesSel);
   let tG='',tS='';
-  if(idx>0){const lP=lancDoMes(mesesDisp[idx-1]);const gP=soma(lP.filter(r=>r['TIPO']==='Despesa').map(valEfetivo));const sP=receitaTotal(lP,null)-gP;tG=trendBadge(totG,gP,true);tS=trendBadge(saldo,sP,false);}
+  if(idx>0){const lP=lancDoMes(mesesDisp[idx-1]);const gP=totalDespesas(lP,null);const sP=receitaTotal(lP,null)-gP;tG=trendBadge(totG,gP,true);tS=trendBadge(saldo,sP,false);}
 
   document.getElementById('metrics-geral').innerHTML=`
     <div class="metric"><div class="metric-label">Receita total</div><div class="metric-value green">${fmt(rec)}</div><div class="metric-sub">Rapha + Fernanda</div></div>
@@ -698,7 +708,7 @@ function renderGeral(){
   mkChart('cPes',{type:'bar',data:{labels:cfg.cats,datasets:[{label:'Rapha',data:cfg.cats.map(c=>gR[c]||0),backgroundColor:'#2563EB',borderRadius:4,borderSkipped:false},{label:'Fernanda',data:cfg.cats.map(c=>gF[c]||0),backgroundColor:'#DB2777',borderRadius:4,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{font:{size:9},autoSkip:false,maxRotation:35}},y:{ticks:{callback:v=>'R$'+v.toLocaleString('pt-BR'),font:{size:10}}}}}});
 
   const recArr=mesesDisp.map(m=>receitaTotal(lancDoMes(m),null));
-  const gastArr=mesesDisp.map(m=>soma(lancDoMes(m).filter(r=>r['TIPO']==='Despesa').map(valEfetivo)));
+  const gastArr=mesesDisp.map(m=>totalDespesas(lancDoMes(m),null));
   const saldArr=recArr.map((r,i)=>r-gastArr[i]);
   mkChart('cEvol',{type:'line',data:{labels:mesesDisp.map(mesToLabel),datasets:[{label:'Receitas',data:recArr,borderColor:'#16A34A',tension:.3,fill:false,pointRadius:4,borderWidth:2},{label:'Despesas',data:gastArr,borderColor:'#DC2626',borderDash:[4,3],tension:.3,fill:false,pointRadius:4,borderWidth:2},{label:'Saldo',data:saldArr,borderColor:'#2563EB',tension:.3,fill:false,pointRadius:4,borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>'R$'+v.toLocaleString('pt-BR'),font:{size:10}}}}}});
 }
@@ -707,7 +717,7 @@ function renderGeral(){
 function renderEquilibrio(){
   const lancs=lancDoMes(mesSel);
   const gR=gastosCat(lancs,'Rapha'),gF=gastosCat(lancs,'Fernanda');
-  const totR=soma(Object.values(gR)),totF=soma(Object.values(gF)),totG=totR+totF;
+  const totR=totalDespesas(lancs,'Rapha'),totF=totalDespesas(lancs,'Fernanda'),totG=totR+totF;
   const diff=Math.abs(totR-totF),maisR=totR>=totF,c1=maisR?'blue':'pink',c2=maisR?'pink':'blue';
 
   const desp=lancs.filter(r=>r['TIPO']==='Despesa');
@@ -730,7 +740,7 @@ function renderEquilibrio(){
       </div>
     </div>`;
 
-  const hist=mesesDisp.map(m=>{const l=lancDoMes(m);const r=soma(Object.values(gastosCat(l,'Rapha'))),f=soma(Object.values(gastosCat(l,'Fernanda')));return r>f?r-f:-(f-r);});
+  const hist=mesesDisp.map(m=>{const l=lancDoMes(m);const r=totalDespesas(l,'Rapha'),f=totalDespesas(l,'Fernanda');return r>f?r-f:-(f-r);});
   mkChart('cEq',{type:'bar',data:{labels:mesesDisp.map(mesToLabel),datasets:[{data:hist,backgroundColor:hist.map(v=>v>=0?'#2563EB':'#DB2777'),borderRadius:4,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' '+fmt(Math.abs(c.raw))+(c.raw>=0?' (Rapha pagou mais)':' (Fernanda pagou mais)')}}},scales:{y:{ticks:{callback:v=>'R$'+Math.abs(v).toLocaleString('pt-BR'),font:{size:10}}}}}});
 }
 
@@ -765,10 +775,10 @@ function renderMetas(){
 // ── PESSOA ──
 function renderPessoa(who){
   const nome=who==='rapha'?'Rapha':'Fernanda';
-  const lancs=lancDoMes(mesSel),g=gastosCat(lancs,nome),totG=soma(Object.values(g));
+  const lancs=lancDoMes(mesSel),g=gastosCat(lancs,nome),totG=totalDespesas(lancs,nome);
   const rec=receitaTotal(lancs,nome),saldo=rec-totG;
   const idx=mesesDisp.indexOf(mesSel);
-  let tG='';if(idx>0){const gP=soma(Object.values(gastosCat(lancDoMes(mesesDisp[idx-1]),nome)));tG=trendBadge(totG,gP,true);}
+  let tG='';if(idx>0){const gP=totalDespesas(lancDoMes(mesesDisp[idx-1]),nome);tG=trendBadge(totG,gP,true);}
   document.getElementById(`${who}-sub`).textContent=fmt(totG)+' gastos no mês';
   document.getElementById(`metrics-${who}`).innerHTML=`
     <div class="metric"><div class="metric-label">Receita</div><div class="metric-value green">${fmt(rec)}</div></div>
@@ -1016,17 +1026,38 @@ function setEstabFiltro(cat){estabCatFiltro=cat;renderEstabelecimentos();}
 // ── PAGAMENTOS ──
 function renderPagamentos(){
   const lancs=lancDoMes(mesSel).filter(r=>r['TIPO']==='Despesa');
-  const pgtos=cfg.pgtos.length?cfg.pgtos:['Crédito','Débito','PIX','Dinheiro'];
+
+  // Coleta todas as formas de pagamento presentes nos dados (case-insensitive, normalizado)
+  const formasNosDados=[...new Set(lancs.map(r=>(r['FORMA DE PGTO']||'').trim()).filter(Boolean))];
+  // Mescla com as formas da config, priorizando as que existem nos dados
+  const pgtosCfg=cfg.pgtos.length?cfg.pgtos:['Crédito','Débito','PIX','Dinheiro'];
+  // União: formas dos dados + formas da config que não duplicam (comparação case-insensitive)
+  const pgtos=[...formasNosDados];
+  pgtosCfg.forEach(p=>{ if(!pgtos.some(x=>x.toLowerCase()===p.toLowerCase())) pgtos.push(p); });
+
   const cores=cfg.pgto_cores.length?cfg.pgto_cores:CORES_PADRAO;
-  const totP=pgtos.map(p=>soma(lancs.filter(r=>r['FORMA DE PGTO']===p).map(valEfetivo)));
-  const totR=pgtos.map(p=>soma(lancs.filter(r=>r['FORMA DE PGTO']===p&&r['QUEM PAGOU']==='Rapha').map(valEfetivo)));
-  const totF=pgtos.map(p=>soma(lancs.filter(r=>r['FORMA DE PGTO']===p&&r['QUEM PAGOU']==='Fernanda').map(valEfetivo)));
-  const grand=soma(totP)||1;
+
+  // Match case-insensitive entre forma no lançamento e forma listada
+  const matchPgto=(r,p)=>(r['FORMA DE PGTO']||'').trim().toLowerCase()===p.toLowerCase();
+
+  const totP=pgtos.map(p=>soma(lancs.filter(r=>matchPgto(r,p)).map(valEfetivo)));
+  const totR=pgtos.map(p=>soma(lancs.filter(r=>matchPgto(r,p)&&r['QUEM PAGOU']==='Rapha').map(valEfetivo)));
+  const totF=pgtos.map(p=>soma(lancs.filter(r=>matchPgto(r,p)&&r['QUEM PAGOU']==='Fernanda').map(valEfetivo)));
+
+  // Filtra formas com valor zero para não poluir o gráfico
+  const idx=pgtos.map((_,i)=>i).filter(i=>totP[i]>0);
+  const pgtosFilt=idx.map(i=>pgtos[i]);
+  const totPF=idx.map(i=>totP[i]);
+  const totRF=idx.map(i=>totR[i]);
+  const totFF=idx.map(i=>totF[i]);
+  const coresFilt=idx.map(i=>cores[i%cores.length]);
+
+  const grand=soma(totPF)||1;
   const grid=document.getElementById('pgto-cards');
-  grid.style.gridTemplateColumns=`repeat(${Math.min(pgtos.length,4)},minmax(0,1fr))`;
-  grid.innerHTML=pgtos.map((p,i)=>`<div class="pgto-card"><div class="pgto-val">${fmt(totP[i])}</div><div class="pgto-lbl">${p}</div><div class="pgto-pct">${pct(totP[i],grand)}% do total</div></div>`).join('');
-  mkChart('cPgto',{type:'doughnut',data:{labels:pgtos,datasets:[{data:totP,backgroundColor:cores,borderWidth:2,borderColor:'#fff'}]},options:{responsive:true,maintainAspectRatio:false,cutout:'62%',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' '+fmt(c.raw)}}}}});
-  mkChart('cPgtoPes',{type:'bar',data:{labels:pgtos,datasets:[{label:'Rapha',data:totR,backgroundColor:'#2563EB',borderRadius:4,borderSkipped:false},{label:'Fernanda',data:totF,backgroundColor:'#DB2777',borderRadius:4,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{font:{size:11}}},y:{ticks:{callback:v=>'R$'+v.toLocaleString('pt-BR'),font:{size:10}}}}}});
+  grid.style.gridTemplateColumns=`repeat(${Math.min(pgtosFilt.length,4)},minmax(0,1fr))`;
+  grid.innerHTML=pgtosFilt.map((p,i)=>`<div class="pgto-card"><div class="pgto-val">${fmt(totPF[i])}</div><div class="pgto-lbl">${p}</div><div class="pgto-pct">${pct(totPF[i],grand)}% do total</div></div>`).join('');
+  mkChart('cPgto',{type:'doughnut',data:{labels:pgtosFilt,datasets:[{data:totPF,backgroundColor:coresFilt,borderWidth:2,borderColor:'#fff'}]},options:{responsive:true,maintainAspectRatio:false,cutout:'62%',plugins:{legend:{position:'bottom',labels:{font:{size:11}}},tooltip:{callbacks:{label:c=>' '+fmt(c.raw)}}}}});
+  mkChart('cPgtoPes',{type:'bar',data:{labels:pgtosFilt,datasets:[{label:'Rapha',data:totRF,backgroundColor:'#2563EB',borderRadius:4,borderSkipped:false},{label:'Fernanda',data:totFF,backgroundColor:'#DB2777',borderRadius:4,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{font:{size:11}}},y:{ticks:{callback:v=>'R$'+v.toLocaleString('pt-BR'),font:{size:10}}}}}});
 }
 
 // ══════════════════════════════════════════════════════

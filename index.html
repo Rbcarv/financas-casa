@@ -1155,8 +1155,10 @@ function renderBusca(q) {
 
   function hl(txt) {
     if (!txt) return '—';
-    const re = new RegExp('(' + q.replace(/[.*+?^${}()|[\]\]/g,'\$&') + ')', 'gi');
-    return String(txt).replace(re, '<mark class="hl">$1</mark>');
+    const s = String(txt);
+    const idx = s.toLowerCase().indexOf(q.toLowerCase());
+    if (idx < 0) return s;
+    return s.slice(0,idx) + '<mark class="hl">' + s.slice(idx, idx+q.length) + '</mark>' + s.slice(idx+q.length);
   }
 
   const rows = resultados.map(r => {

@@ -625,7 +625,18 @@ function popularSelectMes() {
 // ══════════════════════════════════════════════════════
 // FILTROS
 // ══════════════════════════════════════════════════════
+
+// Retorna true se o lançamento é marcado como separado (pessoal)
+function isSeparado(r){ return (r['SEPARADO']||'').toLowerCase()==='sim'; }
+
+// lancDoMes — exclui separados (usado em todos os cálculos do casal)
 function lancDoMes(mes) {
+  if(!mes)return[];
+  return lancExpand.filter(r=>(r._mesKey||mesKeyDeData(r['DATA']))===mes && !isSeparado(r));
+}
+
+// lancDoMesTodos — inclui separados (usado apenas nas abas de compras individuais)
+function lancDoMesTodos(mes) {
   if(!mes)return[];
   return lancExpand.filter(r=>(r._mesKey||mesKeyDeData(r['DATA']))===mes);
 }
@@ -777,8 +788,8 @@ function renderCompras(who) {
   const cor  = who === 'rapha' ? 'var(--rapha)' : 'var(--fernanda)';
   const cls  = who === 'rapha' ? 'rapha' : 'fernanda';
 
-  // Todos os lançamentos do mês desta pessoa (despesas)
-  const todos = lancDoMes(mesSel).filter(r =>
+  // Todos os lançamentos do mês desta pessoa (despesas) — inclui separados
+  const todos = lancDoMesTodos(mesSel).filter(r =>
     r['TIPO'] === 'Despesa' && r['QUEM PAGOU']?.toLowerCase() === who
   );
 

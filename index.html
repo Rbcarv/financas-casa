@@ -593,18 +593,16 @@ function expandirParcelas(lancs) {
     // Considera parcelado se: PARCELADO?=sim OU Nº PARCELAS > 1
     const ehParcelado = parcelado || nParc > 1;
     if (!ehParcelado) {
-      // Lançamento simples — verifica MÊS REF
-      const mesRefDate = parseMesRef(mesRefStr);
-      const mesKey = mesRefDate
-        ? mesKeyDe(mesRefDate.getMonth(), mesRefDate.getFullYear())
-        : null;
+      // Lançamento simples:
+      // _mesKey vem sempre da DATA da compra — MÊS REF é só informativo (fatura de referência)
+      const mesKey = mesKeyDeData(r['DATA']); // null se DATA inválida; lancDoMes trata isso
       resultado.push({ ...r, _valParcela: valTotal, _parcAtual: null, _parcTotal: null, _mesKey: mesKey });
       continue;
     }
 
-    // Parcelado: mês inicial pode ser forçado pelo MÊS REF (1ª parcela)
-    const mesRefDate  = parseMesRef(mesRefStr);
-    const dataInicial = mesRefDate || parseDateBR(r['DATA']);
+    // Parcelado: mês inicial vem da DATA (MÊS REF não altera o início das parcelas)
+    const mesRefDate  = null; // reservado para uso futuro
+    const dataInicial = parseDateBR(r['DATA']);
     if (!dataInicial) { resultado.push({...r,_valParcela:valTotal,_parcAtual:null,_parcTotal:null,_mesKey:null}); continue; }
 
     const valParcela = valTotal / nParc;

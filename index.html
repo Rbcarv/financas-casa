@@ -550,14 +550,17 @@ function csvSplit(line) {
   return res;
 }
 function parseCSV(text) {
-  const lines=text.trim().split('\n');
-  if(lines.length<2)return[];
-  const headers=csvSplit(lines[0]);
-  return lines.slice(1).map(l=>{
-    const vals=csvSplit(l), o={};
-    headers.forEach((h,i)=>o[h.trim()]=(vals[i]||'').trim());
+  // Remove BOM UTF-8 se presente
+  const clean = text.replace(/^\uFEFF/, '').trim();
+  const lines = clean.split('\n');
+  if (lines.length < 2) return [];
+  // Normaliza cabeçalhos: remove BOM, espaços e aspas
+  const headers = csvSplit(lines[0]).map(h => h.trim().replace(/^["\uFEFF]+|["]+$/g, ''));
+  return lines.slice(1).map(l => {
+    const vals = csvSplit(l), o = {};
+    headers.forEach((h, i) => o[h] = (vals[i] || '').trim().replace(/^"|"$/g, ''));
     return o;
-  }).filter(r=>Object.values(r).some(v=>v));
+  }).filter(r => Object.values(r).some(v => v));
 }
 
 // ══════════════════════════════════════════════════════
@@ -580,17 +583,21 @@ function mesKeyDe(mes, ano) {
 function expandirParcelas(lancs) {
   const resultado = [];
   for (const r of lancs) {
-    const parcelado = r['PARCELADO?']==='Sim';
-    const nParc     = parseInt(r['Nº PARCELAS']||r['PARCELAMENTO']||'1')||1;
-    const valTotal  = parseFloat((r['VALOR TOTAL']||r['VALOR']||'0').replace(',','.'))||0;
-    const mesRefStr = (r['MÊS REF']||r['MES REF']||'').trim();
+    // Normaliza PARCELADO?: aceita Sim/SIM/sim/S/s
+    const parcStr    = (r['PARCELADO?']||r['PARCELADO']||'').trim().toLowerCase();
+    const parcelado  = parcStr === 'sim' || parcStr === 's';
+    const nParc      = parseInt(r['Nº PARCELAS']||r['N PARCELAS']||r['PARCELAMENTO']||'1')||1;
+    const valTotal   = parseFloat((r['VALOR TOTAL']||r['VALOR']||'0').replace(/[^\d,]/g,'').replace(',','.'))||0;
+    const mesRefStr  = (r['MÊS REF']||r['MES REF']||r['MES_REF']||'').trim();
 
-    if (!parcelado || nParc<=1) {
+    // Considera parcelado se: PARCELADO?=sim OU Nº PARCELAS > 1
+    const ehParcelado = parcelado || nParc > 1;
+    if (!ehParcelado) {
       // Lançamento simples — verifica MÊS REF
       const mesRefDate = parseMesRef(mesRefStr);
       const mesKey = mesRefDate
         ? mesKeyDe(mesRefDate.getMonth(), mesRefDate.getFullYear())
-        : null; // deixa lancDoMes usar mesKeyDeData(DATA)
+        : null;
       resultado.push({ ...r, _valParcela: valTotal, _parcAtual: null, _parcTotal: null, _mesKey: mesKey });
       continue;
     }
@@ -652,7 +659,13 @@ async function carregarConfig() {
 
 async function carregarLancamentos() {
   const text=await fetchCSV(URL_LANC);
-  rawLanc=parseCSV(text).filter(r=>r['DATA']?.trim());
+  // Aceita qualquer linha que tenha ao menos um campo preenchido com dado relevante
+  rawLanc = parseCSV(text).filter(r => {
+    const temData   = (r['DATA']||'').trim().length > 0;
+    const temMesRef = (r['MÊS REF']||r['MES REF']||'').trim().length > 0;
+    const temValor  = (r['VALOR TOTAL']||r['VALOR']||'').trim().length > 0;
+    return temData || temMesRef || temValor;
+  });
   lancExpand=expandirParcelas(rawLanc);
 
   const set=new Set();
@@ -736,7 +749,10 @@ function popularSelectMes() {
 // ══════════════════════════════════════════════════════
 
 // Retorna true se o lançamento é marcado como separado (pessoal)
-function isSeparado(r){ return (r['SEPARADO']||'').toLowerCase()==='sim'; }
+function isSeparado(r){
+  const v=(r['SEPARADO']||'').trim().toLowerCase();
+  return v==='sim'||v==='s'||v==='x'||v==='yes'||v==='1';
+}
 
 // lancDoMes — exclui separados (usado em todos os cálculos do casal)
 function lancDoMes(mes) {
@@ -1061,8 +1077,9 @@ function renderParcelas(grupo) {
   const card     = document.getElementById(cardId);
 
   const parcelados = rawLanc.filter(r => {
-    if (r['PARCELADO?'] !== 'Sim') return false;
-    if ((parseInt(r['Nº PARCELAS']||r['PARCELAMENTO']||0)||0) <= 1) return false;
+    const nP = parseInt(r['Nº PARCELAS']||r['PARCELAMENTO']||0)||0;
+    const ehParc = (r['PARCELADO?']||'').trim().toLowerCase()==='sim' || nP > 1;
+    if (!ehParc || nP <= 1) return false;
     const sep  = isSeparado(r);
     if (isCasal) return !sep;
     const quem = (r['QUEM PAGOU']||'').toLowerCase();

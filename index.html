@@ -338,7 +338,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
       </div>
       <div class="metrics" id="metrics-geral"><div style="grid-column:span 4" class="loading"><div class="spinner"></div>Lendo planilha...</div></div>
       <div class="grid2">
-        <div class="card"><div class="card-title">Gastos por categoria</div><div class="legend" id="leg-cat"></div><div style="position:relative;height:210px"><canvas id="cCat"></canvas></div></div>
+        <div class="card"><div class="card-title">Gastos por categoria</div><div class="legend" id="leg-cat"></div><div style="position:relative;height:260px"><canvas id="cCat"></canvas></div></div>
         <div class="card"><div class="card-title">Rapha vs Fernanda — por categoria</div><div class="legend"><span class="legend-item"><span class="legend-dot" style="background:var(--rapha)"></span>Rapha</span><span class="legend-item"><span class="legend-dot" style="background:var(--fernanda)"></span>Fernanda</span></div><div style="position:relative;height:210px"><canvas id="cPes"></canvas></div></div>
       </div>
       <div class="card mb"><div class="card-title">Evolução mensal — receitas vs despesas vs saldo</div><div class="legend"><span class="legend-item"><span class="legend-dot" style="background:var(--green)"></span>Receitas</span><span class="legend-item"><span class="legend-dot" style="background:var(--red)"></span>Despesas</span><span class="legend-item"><span class="legend-dot" style="background:var(--rapha)"></span>Saldo</span></div><div style="position:relative;height:180px"><canvas id="cEvol"></canvas></div></div>
@@ -362,14 +362,14 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
     <div class="tab-content" id="tab-rapha">
       <div class="page-header"><div style="display:flex;align-items:center;gap:12px"><div class="avatar r" style="width:44px;height:44px;font-size:15px">RA</div><div><div class="page-title">Rapha</div><div class="page-sub" id="rapha-sub">—</div></div></div></div>
       <div class="metrics" id="metrics-rapha"></div>
-      <div class="grid2"><div class="card"><div class="card-title">Por categoria</div><div id="rapha-bars"></div></div><div class="card"><div class="card-title">Distribuição</div><div style="position:relative;height:230px"><canvas id="cRapha"></canvas></div></div></div>
+      <div class="grid2"><div class="card"><div class="card-title">Por categoria</div><div id="rapha-bars"></div></div><div class="card"><div class="card-title">Distribuição</div><div style="position:relative;height:280px"><canvas id="cRapha"></canvas></div></div></div>
     </div>
 
     <!-- FERNANDA -->
     <div class="tab-content" id="tab-fernanda">
       <div class="page-header"><div style="display:flex;align-items:center;gap:12px"><div class="avatar f" style="width:44px;height:44px;font-size:15px">FE</div><div><div class="page-title">Fernanda</div><div class="page-sub" id="fernanda-sub">—</div></div></div></div>
       <div class="metrics" id="metrics-fernanda"></div>
-      <div class="grid2"><div class="card"><div class="card-title">Por categoria</div><div id="fernanda-bars"></div></div><div class="card"><div class="card-title">Distribuição</div><div style="position:relative;height:230px"><canvas id="cFernanda"></canvas></div></div></div>
+      <div class="grid2"><div class="card"><div class="card-title">Por categoria</div><div id="fernanda-bars"></div></div><div class="card"><div class="card-title">Distribuição</div><div style="position:relative;height:280px"><canvas id="cFernanda"></canvas></div></div></div>
     </div>
 
     <!-- COMPRAS RAPHA -->
@@ -1078,7 +1078,10 @@ function renderGeral(){
     <div class="metric"><div class="metric-label">Lançamentos</div><div class="metric-value blue">${lancs.length}</div><div class="metric-sub">incluindo parcelas</div></div>`;
 
   const totCats=cfg.cats.map(c=>(gR[c]||0)+(gF[c]||0));
-  document.getElementById('leg-cat').innerHTML=cfg.cats.map((c,i)=>`<span class="legend-item"><span class="legend-dot" style="background:${cfg.cores[i]}"></span>${c} ${fmt(totCats[i])}</span>`).join('');
+  // Legenda: só categorias com gasto real
+  document.getElementById('leg-cat').innerHTML = catFiltIdx.map(i =>
+    `<span class="legend-item"><span class="legend-dot" style="background:${cfg.cores[i]||CORES_PADRAO[i%CORES_PADRAO.length]}"></span>${cfg.cats[i]}</span>`
+  ).join('') || '<span style="font-size:11px;color:var(--text-faint)">Nenhum gasto no mês</span>';
   // Filtra só categorias com gasto real > 0
   const catFiltIdx = cfg.cats.map((_,i)=>i).filter(i=>totCats[i]>0);
   const catFiltLabels = catFiltIdx.map(i=>cfg.cats[i]);
@@ -1086,10 +1089,38 @@ function renderGeral(){
   const catFiltCores  = catFiltIdx.map(i=>cfg.cores[i]||CORES_PADRAO[i%CORES_PADRAO.length]);
   const catFiltTotal  = soma(catFiltData)||1;
 
-  mkChart('cCat',{type:'doughnut',data:{labels:catFiltLabels,datasets:[{data:catFiltData,backgroundColor:catFiltCores,borderWidth:2,borderColor:'#fff',hoverOffset:6}]},options:{responsive:true,maintainAspectRatio:false,cutout:'60%',plugins:{
-    legend:{display:true,position:'bottom',labels:{font:{size:11},padding:10,boxWidth:12,filter:(item,data)=>data.datasets[0].data[item.index]>0}},
-    tooltip:{callbacks:{label:c=>{const pct=Math.round(c.raw/catFiltTotal*100);return ` ${c.label}: ${fmt(c.raw)} (${pct}%)`;}}},
-    datalabels:{display:false}
+  mkChart('cCat',{type:'doughnut',data:{labels:catFiltLabels,datasets:[{data:catFiltData,backgroundColor:catFiltCores,borderWidth:2.5,borderColor:'#fff',hoverOffset:8}]},options:{responsive:true,maintainAspectRatio:false,cutout:'55%',plugins:{
+    legend:{
+      display:true,
+      position:'bottom',
+      labels:{
+        font:{size:11},
+        padding:12,
+        boxWidth:12,
+        boxHeight:12,
+        generateLabels: chart => {
+          const data=chart.data;
+          return data.labels.map((label,i)=>{
+            const val=data.datasets[0].data[i];
+            const pct=Math.round(val/catFiltTotal*100);
+            return {
+              text: `${label}  ${pct}%`,
+              fillStyle: data.datasets[0].backgroundColor[i],
+              strokeStyle:'#fff',
+              lineWidth:1,
+              index:i,
+              hidden:false
+            };
+          });
+        }
+      }
+    },
+    tooltip:{callbacks:{
+      label: c => {
+        const pct = Math.round(c.raw/catFiltTotal*100);
+        return ` ${c.label}: ${fmt(c.raw)} (${pct}%)`;
+      }
+    }}
   }}});
   mkChart('cPes',{type:'bar',data:{labels:cfg.cats,datasets:[{label:'Rapha',data:cfg.cats.map(c=>gR[c]||0),backgroundColor:'#2563EB',borderRadius:4,borderSkipped:false},{label:'Fernanda',data:cfg.cats.map(c=>gF[c]||0),backgroundColor:'#DB2777',borderRadius:4,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{font:{size:9},autoSkip:false,maxRotation:35}},y:{ticks:{callback:v=>'R$'+v.toLocaleString('pt-BR'),font:{size:10}}}}}});
 
@@ -1193,7 +1224,26 @@ function renderPessoa(who){
     <div class="metric"><div class="metric-label">% da renda</div><div class="metric-value blue">${pct(totG,rec||1)}%</div><div class="metric-sub" style="color:var(--text-faint)">comprometido</div></div>`;
   const maxV=Math.max(...cfg.cats.map(c=>g[c]||0),1);
   document.getElementById(`${who}-bars`).innerHTML=cfg.cats.map((c,i)=>`<div class="bar-row"><span class="bar-label">${c}</span><div class="bar-track"><div class="bar-fill" style="width:${pct(g[c]||0,maxV)}%;background:${cfg.cores[i]||'#888'}"></div></div><span class="bar-val">${fmt(g[c]||0)}</span></div>`).join('');
-  mkChart('c'+nome,{type:'doughnut',data:{labels:cfg.cats,datasets:[{data:cfg.cats.map(c=>g[c]||0),backgroundColor:cfg.cores,borderWidth:2,borderColor:'#fff'}]},options:{responsive:true,maintainAspectRatio:false,cutout:'62%',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' '+fmt(c.raw)}}}}});
+  const pFiltIdx    = cfg.cats.map((_,i)=>i).filter(i=>(g[cfg.cats[i]]||0)>0);
+  const pFiltLabels = pFiltIdx.map(i=>cfg.cats[i]);
+  const pFiltData   = pFiltIdx.map(i=>g[cfg.cats[i]]||0);
+  const pFiltCores  = pFiltIdx.map(i=>cfg.cores[i]||CORES_PADRAO[i%CORES_PADRAO.length]);
+  const pFiltTotal  = soma(pFiltData)||1;
+  mkChart('c'+nome,{type:'doughnut',data:{labels:pFiltLabels,datasets:[{data:pFiltData,backgroundColor:pFiltCores,borderWidth:2.5,borderColor:'#fff',hoverOffset:6}]},options:{responsive:true,maintainAspectRatio:false,cutout:'55%',plugins:{
+    legend:{
+      display:true,
+      position:'bottom',
+      labels:{
+        font:{size:10},padding:10,boxWidth:10,boxHeight:10,
+        generateLabels: chart => chart.data.labels.map((label,i)=>({
+          text: `${label}  ${Math.round(chart.data.datasets[0].data[i]/pFiltTotal*100)}%`,
+          fillStyle: chart.data.datasets[0].backgroundColor[i],
+          strokeStyle:'#fff', lineWidth:1, index:i, hidden:false
+        }))
+      }
+    },
+    tooltip:{callbacks:{label:c=>` ${c.label}: ${fmt(c.raw)} (${Math.round(c.raw/pFiltTotal*100)}%)`}}
+  }}});
 }
 
 // ── COMPRAS POR PESSOA ──

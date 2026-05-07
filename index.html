@@ -515,9 +515,10 @@ let cfg        = { cats:[], cores:[], metas:{}, pgtos:[], pgto_cores:[] };
 let mesesDisp  = [];
 let mesSel     = '';
 let estabCatFiltro = 'Todos';
-let charts     = {};
-let autoTimer  = null;
-let proximaAt  = null;
+let charts      = {};
+let autoTimer   = null;
+let proximaAt   = null;
+let _ultimoTotal = 0;
 
 // ══════════════════════════════════════════════════════
 // LOGIN
@@ -722,7 +723,14 @@ async function carregarTudo(manual=false) {
     setStatus('Conectado ao Sheets', false);
     const seg = ((Date.now()-t0)/1000).toFixed(1);
     const total = rawLanc.length;
-    mostrarToastRico('✓', 'Dashboard atualizado', `${total} lançamentos em ${seg}s`, 'success');
+    const diff  = total - (_ultimoTotal || 0);
+    let sub = `${total} lançamentos em ${seg}s`;
+    if (_ultimoTotal > 0 && diff > 0)
+      sub += ` · +${diff} novo${diff>1?'s':''}! 🎉`;
+    else if (_ultimoTotal > 0 && diff < 0)
+      sub += ` · ${diff} removido${Math.abs(diff)>1?'s':''}`;
+    _ultimoTotal = total;
+    mostrarToastRico('✓', 'Dashboard atualizado', sub, 'success');
   } catch(e) {
     completarBarra(true);
     setStatus('Erro ao carregar', true);

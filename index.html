@@ -966,20 +966,50 @@ function lancDoMesTodos(mes) {
 function valEfetivo(r){return (r._valParcela!==undefined&&r._valParcela!==null)?r._valParcela:parseFloat((r['VALOR TOTAL']||r['VALOR']||'0').replace(',','.'))||0;}
 
 // Mapeia variações de nomes de categoria para o nome canônico da config
+// Remove caracteres invisíveis e normaliza string para comparação
+function limparStr(s) {
+  return s
+    .replace(/[\u00A0\u200B\u200C\u200D\uFEFF]/g, '') // chars invisíveis
+    .replace(/\s+/g, ' ')                                   // espaços múltiplos
+    .trim()
+    .toLowerCase();
+}
+
 function normalizarCategoria(cat) {
   if (!cat) return 'Outros';
-  const c = cat.trim();
-  // Busca exata primeiro
+  const c = cat.trim().replace(/[\u00A0\u200B\u200C\u200D\uFEFF]/g, '');
+  if (!c) return 'Outros';
+
+  // 1. Busca exata
   if (cfg.cats.includes(c)) return c;
-  // Busca case-insensitive e tolerante a 's' final e '&' vs 'e'
-  const cLow = c.toLowerCase().replace(/&/g,' e ').replace(/\s+/g,' ').trim();
+
+  const cL = limparStr(c);
+
+  // 2. Busca case-insensitive exata
   for (const cat2 of cfg.cats) {
-    const c2Low = cat2.toLowerCase().replace(/&/g,' e ').replace(/\s+/g,' ').trim();
-    if (cLow === c2Low) return cat2;
-    // Tolera plural/singular: "reforma" == "reformas"
-    if (cLow.replace(/s$/,'') === c2Low.replace(/s$/,'')) return cat2;
+    if (limparStr(cat2) === cL) return cat2;
   }
-  return c; // retorna original se não achou
+
+  // 3. Busca tolerante a '&' vs 'e' e acentos
+  const cN = cL.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/&/g, 'e');
+  for (const cat2 of cfg.cats) {
+    const c2N = limparStr(cat2).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/&/g, 'e');
+    if (cN === c2N) return cat2;
+  }
+
+  // 4. Busca por "começa com" — captura "Casa & Reforma" vs "Casa & Reformas"
+  for (const cat2 of cfg.cats) {
+    const c2N = limparStr(cat2).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/&/g, 'e');
+    if (cN.startsWith(c2N) || c2N.startsWith(cN)) return cat2;
+  }
+
+  // 5. Não achou — loga para diagnóstico e retorna original
+  if (!normalizarCategoria._unknown) normalizarCategoria._unknown = new Set();
+  if (!normalizarCategoria._unknown.has(c)) {
+    normalizarCategoria._unknown.add(c);
+    console.warn('[CAT] Categoria não mapeada:', JSON.stringify(c), '| chars:', [...c].map(x=>x.charCodeAt(0)));
+  }
+  return c;
 }
 
 function gastosCat(lancs,pessoa){

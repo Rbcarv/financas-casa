@@ -950,13 +950,26 @@ function isSeparado(r){
   return v==='sim'||v==='s'||v==='x'||v==='yes'||v==='1';
 }
 
-// lancDoMes — exclui separados (usado em todos os cálculos do casal)
+// lancDoMes — exclui separados (cálculos do CASAL: equilíbrio, visão geral)
 function lancDoMes(mes) {
   if(!mes)return[];
   return lancExpand.filter(r=>(r._mesKey||mesKeyDeData(r['DATA']))===mes && !isSeparado(r));
 }
 
-// lancDoMesTodos — inclui separados (usado apenas nas abas de compras individuais)
+// lancDoMesPessoa — inclui separados DA PESSOA (aba individual Rapha/Fernanda)
+// Mostra TUDO que a pessoa gastou, separado ou não
+function lancDoMesPessoa(mes, pessoa) {
+  if(!mes)return[];
+  return lancExpand.filter(r=>{
+    if((r._mesKey||mesKeyDeData(r['DATA']))!==mes) return false;
+    // Se não é separado, sempre inclui
+    if(!isSeparado(r)) return true;
+    // Se é separado, só inclui se for desta pessoa
+    return (r['QUEM PAGOU']||'').toLowerCase() === pessoa.toLowerCase();
+  });
+}
+
+// lancDoMesTodos — inclui tudo sem filtro (compras individuais, busca)
 function lancDoMesTodos(mes) {
   if(!mes)return[];
   return lancExpand.filter(r=>(r._mesKey||mesKeyDeData(r['DATA']))===mes);
@@ -1168,10 +1181,10 @@ function atualizarBadgeMetas(over, att) {
 // ── PESSOA ──
 function renderPessoa(who){
   const nome=who==='rapha'?'Rapha':'Fernanda';
-  const lancs=lancDoMes(mesSel),g=gastosCat(lancs,nome),totG=totalDespesas(lancs,nome);
+  const lancs=lancDoMesPessoa(mesSel,nome),g=gastosCat(lancs,nome),totG=totalDespesas(lancs,nome);
   const rec=receitaTotal(lancs,nome),saldo=rec-totG;
   const idx=mesesDisp.indexOf(mesSel);
-  let tG='';if(idx>0){const gP=totalDespesas(lancDoMes(mesesDisp[idx-1]),nome);tG=trendBadge(totG,gP,true);}
+  let tG='';if(idx>0){const gP=totalDespesas(lancDoMesPessoa(mesesDisp[idx-1],nome),nome);tG=trendBadge(totG,gP,true);}
   document.getElementById(`${who}-sub`).textContent=fmt(totG)+' gastos no mês';
   document.getElementById(`metrics-${who}`).innerHTML=`
     <div class="metric"><div class="metric-label">Receita</div><div class="metric-value green">${fmt(rec)}</div></div>

@@ -307,6 +307,12 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
       Pagamentos
     </div>
 
+    <div class="nav-section">Sistema</div>
+    <div class="nav-item" onclick="setTab('configuracoes',this)">
+      <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="2.5"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.1 3.1l1.4 1.4M11.5 11.5l1.4 1.4M3.1 12.9l1.4-1.4M11.5 4.5l1.4-1.4"/></svg>
+      Configurações
+    </div>
+
     <div class="sidebar-footer">
       <div class="status-row">
         <div><span class="status-dot" id="status-dot"></span><span class="status-txt" id="status-txt">Conectando...</span></div>
@@ -402,6 +408,51 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
       </div>
     </div>
 
+    <!-- CONFIGURAÇÕES -->
+    <div class="tab-content" id="tab-configuracoes">
+      <div class="page-header"><div><div class="page-title">Configurações</div><div class="page-sub">Personalize o dashboard</div></div></div>
+
+      <div class="card mb" style="margin-bottom:12px">
+        <div class="card-title">👥 Nomes das pessoas</div>
+        <div style="padding:0 0 16px">
+          <div style="margin-bottom:16px">
+            <div style="font-size:11px;font-weight:600;color:var(--text-faint);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">Pessoa 1 (avatar azul)</div>
+            <div style="display:flex;gap:10px;align-items:center">
+              <div class="avatar r" style="width:36px;height:36px;font-size:12px;flex-shrink:0" id="cfg-av1">RA</div>
+              <input id="cfg-p1" type="text" style="flex:1;padding:10px 14px;border-radius:var(--radius-sm);border:1.5px solid var(--border-strong);background:var(--bg);font-family:'DM Sans',sans-serif;font-size:14px;color:var(--text);outline:none" placeholder="Ex: Rapha" oninput="atualizarPreviewPessoa(1,this.value)">
+            </div>
+          </div>
+          <div style="margin-bottom:20px">
+            <div style="font-size:11px;font-weight:600;color:var(--text-faint);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">Pessoa 2 (avatar rosa)</div>
+            <div style="display:flex;gap:10px;align-items:center">
+              <div class="avatar f" style="width:36px;height:36px;font-size:12px;flex-shrink:0" id="cfg-av2">FE</div>
+              <input id="cfg-p2" type="text" style="flex:1;padding:10px 14px;border-radius:var(--radius-sm);border:1.5px solid var(--border-strong);background:var(--bg);font-family:'DM Sans',sans-serif;font-size:14px;color:var(--text);outline:none" placeholder="Ex: Fernanda" oninput="atualizarPreviewPessoa(2,this.value)">
+            </div>
+          </div>
+          <button onclick="salvarPessoas()" style="width:100%;padding:12px;border-radius:var(--radius-sm);border:none;background:var(--rapha);color:#fff;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;cursor:pointer">
+            ✓ Salvar nomes
+          </button>
+          <div style="font-size:11px;color:var(--text-faint);margin-top:10px;text-align:center">Os nomes são salvos localmente no seu navegador</div>
+        </div>
+      </div>
+
+      <div class="card mb" style="margin-bottom:12px">
+        <div class="card-title">🎨 Aparência</div>
+        <div style="padding:0 0 16px">
+          <div style="font-size:13px;color:var(--text-muted);margin-bottom:12px">Mais opções de personalização em breve.</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">📋 Sobre</div>
+        <div style="padding:0 0 16px;font-size:13px;color:var(--text-muted);line-height:1.7">
+          Dashboard financeiro pessoal.<br>
+          Dados lidos em tempo real do Google Sheets.<br>
+          <span id="cfg-lancamentos-info"></span>
+        </div>
+      </div>
+    </div>
+
     <!-- BUSCA -->
     <div class="tab-content" id="tab-busca">
       <div class="page-header"><div><div class="page-title">Busca</div><div class="page-sub" id="busca-sub">Digite algo para buscar em todos os meses</div></div></div>
@@ -491,7 +542,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 // ══════════════════════════════════════════════════════
 // CONFIGURAÇÃO
 // ══════════════════════════════════════════════════════
-const SENHA            = 'casa20';
+const SENHA            = 'casa2025';
 const AUTO_REFRESH_MIN = 5;
 // ── IDs ofuscados — não editar manualmente ──
 const _a = ['2CNPK-1iFxYhbOA2fdG8b','AWtTKeeetJ-hxbdz6JOi6','wpPCnUnno1XcFcZbk0VPB','C_i1-0RvtyV5ejZt3cU02ki'];
@@ -528,6 +579,10 @@ let charts      = {};
 let autoTimer   = null;
 let proximaAt   = null;
 let _ultimoTotal = 0;
+// Nomes das pessoas — editável nas configurações
+let PESSOAS = JSON.parse(localStorage.getItem('fc_pessoas') || '{"p1":"Rapha","p2":"Fernanda"}');
+function p1() { return PESSOAS.p1 || 'Rapha'; }
+function p2() { return PESSOAS.p2 || 'Fernanda'; }
 
 // ══════════════════════════════════════════════════════
 // LOGIN
@@ -858,15 +913,31 @@ function trendBadge(cur,prev,inv){
 }
 function vazioHTML(t,d){return`<div class="empty"><div class="empty-icon">📊</div><div class="empty-title">${t}</div><div class="empty-desc">${d}</div></div>`;}
 
+function mesAtualKey() {
+  const d = new Date();
+  return String(d.getMonth()+1).padStart(2,'0') + '/' + d.getFullYear();
+}
+
 function popularSelectMes() {
-  const sel=document.getElementById('selMes');
-  const ant=sel.value;
-  sel.innerHTML='';
-  if(!mesesDisp.length){sel.innerHTML='<option value="">Nenhum dado ainda</option>';mesSel='';return;}
-  mesesDisp.forEach(m=>{const[mm,yyyy]=m.split('/');const o=document.createElement('option');o.value=m;o.textContent=MESES_NOMES[+mm-1]+' '+yyyy;sel.appendChild(o);});
-  sel.value=mesesDisp.includes(ant)?ant:mesesDisp[mesesDisp.length-1];
-  mesSel=sel.value;
-  sel.onchange=()=>{mesSel=sel.value;renderTudo();};
+  const sel = document.getElementById('selMes');
+  const ant = sel.value; // mês que estava selecionado antes (troca manual do usuário)
+  sel.innerHTML = '';
+  if (!mesesDisp.length) { sel.innerHTML='<option value="">Nenhum dado ainda</option>'; mesSel=''; return; }
+  mesesDisp.forEach(m => {
+    const [mm,yyyy] = m.split('/');
+    const o = document.createElement('option');
+    o.value = m;
+    o.textContent = MESES_NOMES[+mm-1] + ' ' + yyyy;
+    sel.appendChild(o);
+  });
+  // Prioridade: 1) mês que o usuário já estava (ant), 2) mês atual, 3) último disponível
+  const mesHoje = mesAtualKey();
+  let alvo = ant && mesesDisp.includes(ant) ? ant
+           : mesesDisp.includes(mesHoje)    ? mesHoje
+           : mesesDisp[mesesDisp.length-1];
+  sel.value = alvo;
+  mesSel = sel.value;
+  sel.onchange = () => { mesSel = sel.value; renderTudo(); };
 }
 
 // ══════════════════════════════════════════════════════
@@ -894,14 +965,31 @@ function lancDoMesTodos(mes) {
 // Valor efetivo do lançamento naquele mês (já calculado na expansão)
 function valEfetivo(r){return (r._valParcela!==undefined&&r._valParcela!==null)?r._valParcela:parseFloat((r['VALOR TOTAL']||r['VALOR']||'0').replace(',','.'))||0;}
 
+// Mapeia variações de nomes de categoria para o nome canônico da config
+function normalizarCategoria(cat) {
+  if (!cat) return 'Outros';
+  const c = cat.trim();
+  // Busca exata primeiro
+  if (cfg.cats.includes(c)) return c;
+  // Busca case-insensitive e tolerante a 's' final e '&' vs 'e'
+  const cLow = c.toLowerCase().replace(/&/g,' e ').replace(/\s+/g,' ').trim();
+  for (const cat2 of cfg.cats) {
+    const c2Low = cat2.toLowerCase().replace(/&/g,' e ').replace(/\s+/g,' ').trim();
+    if (cLow === c2Low) return cat2;
+    // Tolera plural/singular: "reforma" == "reformas"
+    if (cLow.replace(/s$/,'') === c2Low.replace(/s$/,'')) return cat2;
+  }
+  return c; // retorna original se não achou
+}
+
 function gastosCat(lancs,pessoa){
   const res={};cfg.cats.forEach(c=>res[c]=0);
   lancs.forEach(r=>{
     if(r['TIPO']!=='Despesa')return;
     if(pessoa&&r['QUEM PAGOU']?.toLowerCase()!==pessoa.toLowerCase())return;
-    const c=r['CATEGORIA']||'Outros';
+    const c = normalizarCategoria(r['CATEGORIA']);
     if(res[c]!==undefined) res[c]+=valEfetivo(r);
-    else { res[c]=(res[c]||0)+valEfetivo(r); } // categoria fora da config também conta
+    else { res[c]=(res[c]||0)+valEfetivo(r); }
   });
   return res;
 }
@@ -927,7 +1015,7 @@ function mesToLabel(m){const[mm]=m.split('/');return MESES_ABREV[+mm-1];}
 function renderTudo(){
   if(!mesSel)return;
   const tab=document.querySelector('.tab-content.active')?.id?.replace('tab-','');
-  ({geral:renderGeral,equilibrio:renderEquilibrio,metas:renderMetas,rapha:()=>renderPessoa('rapha'),fernanda:()=>renderPessoa('fernanda'),'compras-rapha':()=>renderCompras('rapha'),'compras-fernanda':()=>renderCompras('fernanda'),lancamentos:renderLancamentos,'parcelas-casal':()=>renderParcelas('casal'),'parcelas-rapha':()=>renderParcelas('rapha'),'parcelas-fernanda':()=>renderParcelas('fernanda'),estabelecimentos:renderEstabelecimentos,pagamentos:renderPagamentos,busca:()=>renderBusca(document.getElementById('searchInput').value)}[tab]||renderGeral)();
+  ({geral:renderGeral,equilibrio:renderEquilibrio,metas:renderMetas,rapha:()=>renderPessoa('rapha'),fernanda:()=>renderPessoa('fernanda'),'compras-rapha':()=>renderCompras('rapha'),'compras-fernanda':()=>renderCompras('fernanda'),lancamentos:renderLancamentos,'parcelas-casal':()=>renderParcelas('casal'),'parcelas-rapha':()=>renderParcelas('rapha'),'parcelas-fernanda':()=>renderParcelas('fernanda'),estabelecimentos:renderEstabelecimentos,pagamentos:renderPagamentos,configuracoes:renderConfiguracoes,busca:()=>renderBusca(document.getElementById('searchInput').value)}[tab]||renderGeral)();
 }
 
 // ── GERAL ──
@@ -954,7 +1042,18 @@ function renderGeral(){
 
   const totCats=cfg.cats.map(c=>(gR[c]||0)+(gF[c]||0));
   document.getElementById('leg-cat').innerHTML=cfg.cats.map((c,i)=>`<span class="legend-item"><span class="legend-dot" style="background:${cfg.cores[i]}"></span>${c} ${fmt(totCats[i])}</span>`).join('');
-  mkChart('cCat',{type:'doughnut',data:{labels:cfg.cats,datasets:[{data:totCats,backgroundColor:cfg.cores,borderWidth:2,borderColor:'#fff',hoverOffset:5}]},options:{responsive:true,maintainAspectRatio:false,cutout:'65%',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' '+fmt(c.raw)}}}}});
+  // Filtra só categorias com gasto real > 0
+  const catFiltIdx = cfg.cats.map((_,i)=>i).filter(i=>totCats[i]>0);
+  const catFiltLabels = catFiltIdx.map(i=>cfg.cats[i]);
+  const catFiltData   = catFiltIdx.map(i=>totCats[i]);
+  const catFiltCores  = catFiltIdx.map(i=>cfg.cores[i]||CORES_PADRAO[i%CORES_PADRAO.length]);
+  const catFiltTotal  = soma(catFiltData)||1;
+
+  mkChart('cCat',{type:'doughnut',data:{labels:catFiltLabels,datasets:[{data:catFiltData,backgroundColor:catFiltCores,borderWidth:2,borderColor:'#fff',hoverOffset:6}]},options:{responsive:true,maintainAspectRatio:false,cutout:'60%',plugins:{
+    legend:{display:true,position:'bottom',labels:{font:{size:11},padding:10,boxWidth:12,filter:(item,data)=>data.datasets[0].data[item.index]>0}},
+    tooltip:{callbacks:{label:c=>{const pct=Math.round(c.raw/catFiltTotal*100);return ` ${c.label}: ${fmt(c.raw)} (${pct}%)`;}}},
+    datalabels:{display:false}
+  }}});
   mkChart('cPes',{type:'bar',data:{labels:cfg.cats,datasets:[{label:'Rapha',data:cfg.cats.map(c=>gR[c]||0),backgroundColor:'#2563EB',borderRadius:4,borderSkipped:false},{label:'Fernanda',data:cfg.cats.map(c=>gF[c]||0),backgroundColor:'#DB2777',borderRadius:4,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{font:{size:9},autoSkip:false,maxRotation:35}},y:{ticks:{callback:v=>'R$'+v.toLocaleString('pt-BR'),font:{size:10}}}}}});
 
   const recArr=mesesDisp.map(m=>receitaTotal(lancDoMes(m),null));
@@ -971,22 +1070,24 @@ function renderEquilibrio(){
   const diff=Math.abs(totR-totF),maisR=totR>=totF,c1=maisR?'blue':'pink',c2=maisR?'pink':'blue';
 
   const desp=lancs.filter(r=>r['TIPO']==='Despesa');
-  const respR=soma(desp.filter(r=>r['RESPONSÁVEL']==='Rapha').map(valEfetivo));
-  const respF=soma(desp.filter(r=>r['RESPONSÁVEL']==='Fernanda').map(valEfetivo));
-  const respC=soma(desp.filter(r=>r['RESPONSÁVEL']==='Compartilhado').map(valEfetivo));
-  const efR=respR+respC/2,efF=respF+respC/2,respDiff=Math.abs(efR-efF),quemAj=efR>efF?'Fernanda':'Rapha';
+  // Calcula quanto cada um deveria pagar (divisão 50/50 do total)
+  const idealCada = totG / 2;
+  const diffPag   = totR - totF; // positivo = Rapha pagou mais
+  const quemPagouMais = diffPag >= 0 ? p1() : p2();
+  const quemDeve      = diffPag >= 0 ? p2() : p1();
+  const valorAjuste   = Math.abs(diffPag) / 2;
 
   document.getElementById('eq-content').innerHTML=`
     <div class="grid2 mb">
       <div class="eq-card ${c1}"><div class="eq-label ${c1}">${maisR?'Rapha':'Fernanda'} pagou a mais</div><div class="eq-value ${c1}">${fmt(diff)}</div><div class="eq-desc ${c1}">${maisR?'Fernanda':'Rapha'} deve R$ ${Math.round(diff/2).toLocaleString('pt-BR')} para equilibrar</div></div>
-      <div class="eq-card ${c2}"><div class="eq-label ${c2}">Por responsabilidade</div><div class="eq-value ${c2}">${fmt(respDiff)}</div><div class="eq-desc ${c2}">${quemAj} deve ajustar ${fmt(respDiff)}</div></div>
+      <div class="eq-card ${c2}"><div class="eq-label ${c2}">Ajuste sugerido</div><div class="eq-value ${c2}">${fmt(valorAjuste)}</div><div class="eq-desc ${c2}">${quemDeve} repassa ${fmt(valorAjuste)} para ${quemPagouMais} equilibrar</div></div>
     </div>
     <div class="card mb"><div class="card-title">Comparativo detalhado</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
         <div><div style="display:flex;align-items:center;gap:10px;margin-bottom:14px"><div class="avatar r" style="width:36px;height:36px;font-size:13px">RA</div><div><div style="font-size:14px;font-weight:600">Rapha</div><div style="font-size:12px;color:var(--text-muted)">${pct(totR,totG||1)}% do total</div></div></div>
-        ${barra('Pagou',totR,totG,'#2563EB')}${barra('Responsável',efR,totG,'#93C5FD')}</div>
+        ${barra('Pagou',totR,totG,'#2563EB')}${barra('Ideal (50%)',idealCada,totG,'#93C5FD')}</div>
         <div><div style="display:flex;align-items:center;gap:10px;margin-bottom:14px"><div class="avatar f" style="width:36px;height:36px;font-size:13px">FE</div><div><div style="font-size:14px;font-weight:600">Fernanda</div><div style="font-size:12px;color:var(--text-muted)">${pct(totF,totG||1)}% do total</div></div></div>
-        ${barra('Pagou',totF,totG,'#DB2777')}${barra('Responsável',efF,totG,'#F9A8D4')}</div>
+        ${barra('Pagou',totF,totG,'#DB2777')}${barra('Ideal (50%)',idealCada,totG,'#F9A8D4')}</div>
       </div>
     </div>`;
 
@@ -1181,7 +1282,7 @@ function renderLancamentos(){
       <td>${r['CATEGORIA']||''}</td>
       <td>${r['ESTABELECIMENTO']||'—'}</td>
       <td><span class="badge ${qcls}">${quem}</span></td>
-      <td><span class="badge ${rcls}">${r['RESPONSÁVEL']||''}</span></td>
+
       <td><span class="badge ${tipo==='Receita'?'receita':'despesa'}">${tipo}</span></td>
       <td class="mono" style="text-align:right;color:${tipo==='Receita'?'var(--green)':'var(--text)'}">${fmt(val)}</td>
       <td>${r['FORMA DE PGTO']||''}</td>
@@ -1337,6 +1438,40 @@ const ESTAB_ICONS = {
   'nubank':         { emoji: '💜', bg: '#820AD1', label: 'Nubank' },
 };
 
+
+// ── LOGOS DOS ESTABELECIMENTOS ──
+const ESTAB_LOGOS = {
+  'mercado livre':  { svg: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100" rx="18" fill="#FFE600"/><text y="62" x="50" text-anchor="middle" font-size="52" font-family="Arial">🛍️</text><text y="88" x="50" text-anchor="middle" font-size="14" font-weight="bold" fill="#333" font-family="Arial">ML</text></svg>`, bg:'#FFF9C4' },
+  'shopee':         { svg: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100" rx="18" fill="#FF5722"/><text y="65" x="50" text-anchor="middle" font-size="58" font-family="Arial">🟠</text></svg>`, bg:'#FBE9E7' },
+  'pão de açúcar':  { svg: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100" rx="18" fill="#E8000D"/><text y="62" x="50" text-anchor="middle" font-size="52" font-family="Arial">🛒</text><text y="88" x="50" text-anchor="middle" font-size="13" font-weight="bold" fill="#fff" font-family="Arial">P.AÇÚCAR</text></svg>`, bg:'#FFEBEE' },
+  'pao de acucar':  { svg: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100" rx="18" fill="#E8000D"/><text y="62" x="50" text-anchor="middle" font-size="52" font-family="Arial">🛒</text><text y="88" x="50" text-anchor="middle" font-size="13" font-weight="bold" fill="#fff" font-family="Arial">P.AÇÚCAR</text></svg>`, bg:'#FFEBEE' },
+  'joanin':         { svg: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100" rx="18" fill="#2E7D32"/><text y="62" x="50" text-anchor="middle" font-size="52" font-family="Arial">🛒</text><text y="88" x="50" text-anchor="middle" font-size="14" font-weight="bold" fill="#fff" font-family="Arial">JOANIN</text></svg>`, bg:'#E8F5E9' },
+  'ifood':          { svg: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100" rx="18" fill="#EA1D2C"/><text y="62" x="50" text-anchor="middle" font-size="52" font-family="Arial">🛵</text><text y="88" x="50" text-anchor="middle" font-size="14" font-weight="bold" fill="#fff" font-family="Arial">iFood</text></svg>`, bg:'#FFEBEE' },
+  'carrefour':      { svg: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100" rx="18" fill="#004A97"/><text y="62" x="50" text-anchor="middle" font-size="52" font-family="Arial">🛒</text><text y="88" x="50" text-anchor="middle" font-size="11" font-weight="bold" fill="#fff" font-family="Arial">CARREFOUR</text></svg>`, bg:'#E3F2FD' },
+  'netflix':        { svg: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100" rx="18" fill="#E50914"/><text y="72" x="50" text-anchor="middle" font-size="62" font-weight="bold" fill="#fff" font-family="Arial Narrow,Arial">N</text></svg>`, bg:'#FFEBEE' },
+  'spotify':        { svg: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100" rx="50" fill="#1DB954"/><text y="65" x="50" text-anchor="middle" font-size="52" font-family="Arial">🎵</text></svg>`, bg:'#E8F5E9' },
+  'amazon':         { svg: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100" rx="18" fill="#FF9900"/><text y="62" x="50" text-anchor="middle" font-size="52" font-family="Arial">📦</text><text y="88" x="50" text-anchor="middle" font-size="13" font-weight="bold" fill="#fff" font-family="Arial">AMAZON</text></svg>`, bg:'#FFF8E1' },
+  'uber':           { svg: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100" rx="18" fill="#000"/><text y="72" x="50" text-anchor="middle" font-size="38" font-weight="bold" fill="#fff" font-family="Arial">Uber</text></svg>`, bg:'#F5F5F5' },
+  'rappi':          { svg: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100" rx="18" fill="#FF441F"/><text y="62" x="50" text-anchor="middle" font-size="52" font-family="Arial">🟡</text><text y="88" x="50" text-anchor="middle" font-size="14" font-weight="bold" fill="#fff" font-family="Arial">RAPPI</text></svg>`, bg:'#FBE9E7' },
+  'pizzaria':       { svg: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100" rx="18" fill="#D84315"/><text y="65" x="50" text-anchor="middle" font-size="60" font-family="Arial">🍕</text></svg>`, bg:'#FBE9E7' },
+  'farmácia':       { svg: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100" rx="18" fill="#0288D1"/><text y="65" x="50" text-anchor="middle" font-size="60" font-family="Arial">💊</text></svg>`, bg:'#E1F5FE' },
+  'farmacia':       { svg: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100" rx="18" fill="#0288D1"/><text y="65" x="50" text-anchor="middle" font-size="60" font-family="Arial">💊</text></svg>`, bg:'#E1F5FE' },
+  'drogasil':       { svg: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100" rx="18" fill="#E53935"/><text y="65" x="50" text-anchor="middle" font-size="60" font-family="Arial">💊</text></svg>`, bg:'#FFEBEE' },
+  'droga raia':     { svg: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100" rx="18" fill="#E53935"/><text y="65" x="50" text-anchor="middle" font-size="60" font-family="Arial">💊</text></svg>`, bg:'#FFEBEE' },
+};
+
+function getEstabLogo(nome) {
+  if (!nome) return null;
+  const low = nome.toLowerCase();
+  for (const [key, val] of Object.entries(ESTAB_LOGOS)) {
+    if (low.includes(key)) return val;
+  }
+  return null;
+}
+
+function svgToDataUrl(svg) {
+  return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+}
 function getEstabIcon(nome) {
   if (!nome) return { emoji: '🏪', bg: '#90A4AE' };
   const low = nome.toLowerCase();
@@ -1378,15 +1513,45 @@ function renderEstabelecimentos(){
   const sorted=Object.entries(map).sort((a,b)=>b[1].total-a[1].total);
   const nomes=sorted.map(([k])=>k),vals=sorted.map(([,v])=>v.total);
   const grand=soma(vals)||1,maxV=vals[0]||1;
-  // injeta ícones no ranking
-  const barHtml = sorted.slice(0,10).map(([nome,v])=>{
+
+  // ── DESTAQUE TOP 1 com logo ──
+  let topHtml = '';
+  if (sorted.length > 0) {
+    const [topNome, topV] = sorted[0];
+    const logo = getEstabLogo(topNome);
+    const ic   = getEstabIcon(topNome);
+    const logoEl = logo
+      ? `<img src="${svgToDataUrl(logo.svg)}" style="width:72px;height:72px;border-radius:16px;object-fit:contain;background:${logo.bg};padding:6px">`
+      : `<div style="width:72px;height:72px;border-radius:16px;background:${ic.bg||'#eee'};display:flex;align-items:center;justify-content:center;font-size:36px">${ic.emoji}</div>`;
+    topHtml = `
+      <div style="display:flex;align-items:center;gap:16px;padding:16px;background:var(--surface-alt,#f8fafc);border-radius:12px;margin-bottom:16px;border:1px solid var(--border)">
+        ${logoEl}
+        <div style="flex:1">
+          <div style="font-size:10px;font-weight:700;color:var(--text-faint);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">🏆 Maior gasto do mês</div>
+          <div style="font-size:18px;font-weight:700;color:var(--text)">${topNome}</div>
+          <div style="font-size:13px;color:var(--red);font-weight:600;margin-top:2px">${fmt(topV.total)}</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:2px">${pct(topV.total,grand)}% do total · ${topV.count} compra(s)</div>
+        </div>
+      </div>`;
+  }
+
+  // ── RANKING com ícones ──
+  const barHtml = sorted.slice(0,10).map(([nome,v], idx)=>{
     const ic = getEstabIcon(nome);
-    const icEl = ic.isInitial
-      ? `<div style="width:28px;height:28px;border-radius:8px;background:${ic.bg};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0">${ic.emoji}</div>`
-      : `<div style="width:28px;height:28px;border-radius:8px;background:${ic.bg}22;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">${ic.emoji}</div>`;
-    return `<div class="bar-row" style="align-items:center;gap:8px">${icEl}<span class="bar-label" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis">${nome}</span><div class="bar-track" style="width:80px"><div class="bar-fill" style="width:${pct(v.total,maxV)}%;background:var(--rapha)"></div></div><span class="bar-val">${fmt(v.total)}</span></div>`;
+    const logo = getEstabLogo(nome);
+    let icEl;
+    if (logo) {
+      icEl = `<img src="${svgToDataUrl(logo.svg)}" style="width:28px;height:28px;border-radius:8px;object-fit:contain;background:${logo.bg};padding:2px;flex-shrink:0">`;
+    } else if (ic.isInitial) {
+      icEl = `<div style="width:28px;height:28px;border-radius:8px;background:${ic.bg};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0">${ic.emoji}</div>`;
+    } else {
+      icEl = `<div style="width:28px;height:28px;border-radius:8px;background:${ic.bg}22;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">${ic.emoji}</div>`;
+    }
+    const medalha = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : '';
+    return `<div class="bar-row" style="align-items:center;gap:8px">${icEl}<span class="bar-label" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis">${medalha} ${nome}</span><div class="bar-track" style="width:80px"><div class="bar-fill" style="width:${pct(v.total,maxV)}%;background:var(--rapha)"></div></div><span class="bar-val">${fmt(v.total)}</span></div>`;
   }).join('');
-  document.getElementById('estab-bars').innerHTML = barHtml || vazioHTML('Sem dados','');
+
+  document.getElementById('estab-bars').innerHTML = topHtml + (barHtml || vazioHTML('Sem dados',''));
 
   // Métricas
   document.getElementById('metrics-estab').innerHTML=`
@@ -1470,7 +1635,7 @@ function onSearch(query) {
 
 function renderBusca(q) {
   const ql = q.toLowerCase();
-  const campos = ['DESCRIÇÃO','ESTABELECIMENTO','CATEGORIA','QUEM PAGOU','FORMA DE PGTO','RESPONSÁVEL'];
+  const campos = ['DESCRIÇÃO','ESTABELECIMENTO','CATEGORIA','QUEM PAGOU','FORMA DE PGTO'];
 
   // Busca em TODOS os meses (lancExpand completo, sem filtro de mês)
   const resultados = lancExpand.filter(r => {
@@ -1595,6 +1760,63 @@ function exportarPDF() {
   const win = window.open(url, '_blank');
   if (!win) mostrarToast('⚠ Permita pop-ups para exportar PDF');
   setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
+
+// ══════════════════════════════════════════════════════
+// CONFIGURAÇÕES — pessoas
+// ══════════════════════════════════════════════════════
+function renderConfiguracoes() {
+  const p1i = document.getElementById('cfg-p1');
+  const p2i = document.getElementById('cfg-p2');
+  if (p1i) p1i.value = p1();
+  if (p2i) p2i.value = p2();
+  atualizarPreviewPessoa(1, p1());
+  atualizarPreviewPessoa(2, p2());
+  const info = document.getElementById('cfg-lancamentos-info');
+  if (info) info.textContent = `Total de lançamentos carregados: ${rawLanc?.length || 0}`;
+}
+
+function atualizarPreviewPessoa(num, nome) {
+  const av = document.getElementById('cfg-av' + num);
+  if (!av) return;
+  const sigla = nome.trim().substring(0,2).toUpperCase() || (num===1?'P1':'P2');
+  av.textContent = sigla;
+}
+
+function salvarPessoas() {
+  const p1v = (document.getElementById('cfg-p1')?.value||'').trim() || 'Rapha';
+  const p2v = (document.getElementById('cfg-p2')?.value||'').trim() || 'Fernanda';
+  PESSOAS = { p1: p1v, p2: p2v };
+  localStorage.setItem('fc_pessoas', JSON.stringify(PESSOAS));
+  // Atualiza todos os textos do dashboard
+  aplicarNomesPessoas();
+  mostrarToastRico('✓','Nomes salvos!',`${p1v} & ${p2v}`,'success');
+}
+
+function aplicarNomesPessoas() {
+  // Atualiza brand subtitle
+  const brandSub = document.querySelector('.brand-sub');
+  if (brandSub) brandSub.textContent = `${p1()} & ${p2()}`;
+  // Atualiza título da página
+  document.title = `Finanças — ${p1()} & ${p2()}`;
+  // Atualiza nav items
+  const navItems = document.querySelectorAll('.nav-item');
+  navItems.forEach(el => {
+    if (el.getAttribute('onclick')?.includes("'rapha'")) {
+      const txt = el.childNodes[el.childNodes.length-1];
+      if (txt && txt.nodeType===3) txt.textContent = '
+      '+p1()+'
+    ';
+    }
+    if (el.getAttribute('onclick')?.includes("'fernanda'")) {
+      const txt = el.childNodes[el.childNodes.length-1];
+      if (txt && txt.nodeType===3) txt.textContent = '
+      '+p2()+'
+    ';
+    }
+  });
+  // Re-renderiza a aba ativa se for de pessoa
+  renderTudo();
 }
 
 // ══════════════════════════════════════════════════════

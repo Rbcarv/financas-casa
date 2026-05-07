@@ -491,13 +491,22 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 // ══════════════════════════════════════════════════════
 // CONFIGURAÇÃO
 // ══════════════════════════════════════════════════════
-const SENHA            = 'casa2025';
+const SENHA            = 'casa20';
 const AUTO_REFRESH_MIN = 5;
-const SHEET_ID         = '2PACX-1vSkLuoBN2sqT8oNJgGXrrrgW-ukoqm6WBv6jcCPaHaab1KpSpMox0ICOP_v1-0EiglI5rwMg3pH02xv';
-const GID_LANCAMENTOS  = '0';
-const GID_CONFIG       = '636837225';
-const URL_LANC         = `https://docs.google.com/spreadsheets/d/e/${SHEET_ID}/pub?gid=${GID_LANCAMENTOS}&single=true&output=csv`;
-const URL_CONFIG       = `https://docs.google.com/spreadsheets/d/e/${SHEET_ID}/pub?gid=${GID_CONFIG}&single=true&output=csv`;
+// ── IDs ofuscados — não editar manualmente ──
+const _a = ['2CNPK-1iFxYhbOA2fdG8b','AWtTKeeetJ-hxbdz6JOi6','wpPCnUnno1XcFcZbk0VPB','C_i1-0RvtyV5ejZt3cU02ki'];
+const _b = ['NjM2', 'ODM3', 'MjI1'];
+const _r = s => s.split('').map(c => {
+  if (c >= 'a' && c <= 'z') return String.fromCharCode((c.charCodeAt(0) - 97 + 13) % 26 + 97);
+  if (c >= 'A' && c <= 'Z') return String.fromCharCode((c.charCodeAt(0) - 65 + 13) % 26 + 65);
+  return c;
+}).join('');
+const _d = s => atob(s);
+const _sid  = () => _a.map(_r).join('');
+const _gidL = () => '0';
+const _gidC = () => _d(_b.join(''));
+const URL_LANC   = `https://docs.google.com/spreadsheets/d/e/${_sid()}/pub?gid=${_gidL()}&single=true&output=csv`;
+const URL_CONFIG = `https://docs.google.com/spreadsheets/d/e/${_sid()}/pub?gid=${_gidC()}&single=true&output=csv`;
 const PROXIES = [
   u=>`https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
   u=>`https://corsproxy.io/?${encodeURIComponent(u)}`,

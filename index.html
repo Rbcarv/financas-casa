@@ -997,13 +997,7 @@ function normalizarCategoria(cat) {
     if (cN === c2N) return cat2;
   }
 
-  // 4. Busca por "começa com" — captura "Casa & Reforma" vs "Casa & Reformas"
-  for (const cat2 of cfg.cats) {
-    const c2N = limparStr(cat2).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/&/g, 'e');
-    if (cN.startsWith(c2N) || c2N.startsWith(cN)) return cat2;
-  }
-
-  // 5. Não achou — loga para diagnóstico e retorna original
+  // 4. Não achou — loga para diagnóstico e retorna original
   if (!normalizarCategoria._unknown) normalizarCategoria._unknown = new Set();
   if (!normalizarCategoria._unknown.has(c)) {
     normalizarCategoria._unknown.add(c);

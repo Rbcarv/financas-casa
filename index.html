@@ -182,8 +182,22 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .tab-content{display:none}.tab-content.active{display:block}
 
 /* TOAST */
-.toast{position:fixed;bottom:24px;right:24px;background:var(--text);color:#fff;font-size:13px;padding:10px 18px;border-radius:var(--radius-sm);opacity:0;transform:translateY(8px);transition:all .3s;pointer-events:none;z-index:100}
+.toast{position:fixed;bottom:24px;right:24px;display:flex;align-items:center;gap:10px;background:#1e293b;color:#f1f5f9;font-size:13px;font-weight:500;padding:12px 18px;border-radius:var(--radius-sm);opacity:0;transform:translateY(12px);transition:all .3s cubic-bezier(.32,.72,0,1);pointer-events:none;z-index:100;box-shadow:0 4px 24px rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.08);min-width:220px}
 .toast.show{opacity:1;transform:translateY(0)}
+.toast-icon{font-size:16px;flex-shrink:0}
+.toast-body{flex:1}
+.toast-title{font-size:13px;font-weight:600}
+.toast-sub{font-size:11px;color:#94a3b8;margin-top:1px}
+.toast.success{border-color:rgba(52,211,153,.3)}
+.toast.success .toast-icon{color:#34d399}
+.toast.error{border-color:rgba(248,113,113,.3)}
+.toast.error .toast-icon{color:#f87171}
+.toast.loading{border-color:rgba(99,102,241,.3)}
+.toast.loading .toast-icon{color:#818cf8}
+
+/* Barra de progresso no topo do dashboard */
+.refresh-bar{position:fixed;top:0;left:0;right:0;height:3px;background:transparent;z-index:200;pointer-events:none}
+.refresh-bar-fill{height:100%;width:0%;background:linear-gradient(90deg,#6366f1,#06b6d4);border-radius:0 2px 2px 0;transition:width .1s linear;box-shadow:0 0 8px rgba(99,102,241,.6)}
 
 /* PARCELA INFO */
 .parc-timeline{background:var(--bg);border-radius:var(--radius-sm);padding:12px 16px;margin-top:8px;font-size:12px;color:var(--text-muted);border-left:3px solid #6D28D9}
@@ -191,7 +205,14 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 </head>
 <body>
 
-<div class="toast" id="toast"></div>
+<div class="refresh-bar"><div class="refresh-bar-fill" id="refresh-bar-fill"></div></div>
+<div class="toast" id="toast">
+  <div class="toast-icon" id="toast-icon"></div>
+  <div class="toast-body">
+    <div class="toast-title" id="toast-title"></div>
+    <div class="toast-sub" id="toast-sub"></div>
+  </div>
+</div>
 
 <!-- LOGIN -->
 <div id="login-screen">
@@ -686,15 +707,26 @@ async function iniciar() { await carregarTudo(false); agendarAutoRefresh(); }
 
 async function carregarTudo(manual=false) {
   setStatus('Atualizando...',false);
+  iniciarBarraProgresso();
+  mostrarToastRico('⏳','Buscando dados...','Conectando ao Google Sheets','loading');
+  const t0 = Date.now();
   try {
-    await Promise.all([carregarConfig(),carregarLancamentos()]);
+    avancarBarra(30);
+    await carregarConfig();
+    avancarBarra(60);
+    await carregarLancamentos();
+    avancarBarra(90);
     renderTudo();
-    proximaAt=Date.now()+AUTO_REFRESH_MIN*60000;
-    setStatus('Conectado ao Sheets',false);
-    if(manual)mostrarToast('✓ Dados atualizados');
+    completarBarra();
+    proximaAt = Date.now() + AUTO_REFRESH_MIN*60000;
+    setStatus('Conectado ao Sheets', false);
+    const seg = ((Date.now()-t0)/1000).toFixed(1);
+    const total = rawLanc.length;
+    mostrarToastRico('✓', 'Dashboard atualizado', `${total} lançamentos em ${seg}s`, 'success');
   } catch(e) {
-    setStatus('Erro ao carregar',true);
-    if(manual)mostrarToast('⚠ Falha ao atualizar');
+    completarBarra(true);
+    setStatus('Erro ao carregar', true);
+    mostrarToastRico('⚠', 'Falha ao atualizar', 'Verifique a conexão e tente novamente', 'error');
   }
 }
 
@@ -709,7 +741,46 @@ function agendarAutoRefresh() {
 }
 
 function setStatus(m,e){document.getElementById('status-txt').textContent=m;document.getElementById('status-dot').className='status-dot'+(e?' erro':'');}
-function mostrarToast(m){const el=document.getElementById('toast');el.textContent=m;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),2500);}
+function mostrarToast(m){ mostrarToastRico('ℹ️', m, '', 'success'); }
+
+function mostrarToastRico(icon, titulo, sub, tipo='success') {
+  const el  = document.getElementById('toast');
+  const ti  = document.getElementById('toast-icon');
+  const tt  = document.getElementById('toast-title');
+  const ts  = document.getElementById('toast-sub');
+  if (!el) return;
+  ti.textContent = icon;
+  tt.textContent = titulo;
+  ts.textContent = sub || '';
+  ts.style.display = sub ? '' : 'none';
+  el.className = `toast show ${tipo}`;
+  clearTimeout(el._timer);
+  if (tipo !== 'loading') {
+    el._timer = setTimeout(() => el.classList.remove('show'), tipo==='error' ? 5000 : 3500);
+  }
+}
+
+// ── BARRA DE PROGRESSO ──
+let _barVal = 0, _barTimer = null;
+function iniciarBarraProgresso() {
+  _barVal = 0;
+  const fill = document.getElementById('refresh-bar-fill');
+  if (fill) { fill.style.transition='none'; fill.style.width='0%'; fill.style.background='linear-gradient(90deg,#6366f1,#06b6d4)'; }
+}
+function avancarBarra(pct) {
+  _barVal = pct;
+  const fill = document.getElementById('refresh-bar-fill');
+  if (fill) { fill.style.transition='width .4s ease'; fill.style.width = pct+'%'; }
+}
+function completarBarra(erro=false) {
+  const fill = document.getElementById('refresh-bar-fill');
+  if (!fill) return;
+  if (erro) fill.style.background = '#f87171';
+  fill.style.transition = 'width .3s ease';
+  fill.style.width = '100%';
+  setTimeout(() => { fill.style.transition='opacity .4s'; fill.style.opacity='0'; }, 500);
+  setTimeout(() => { fill.style.width='0%'; fill.style.opacity='1'; }, 950);
+}
 
 // ══════════════════════════════════════════════════════
 // UTILS

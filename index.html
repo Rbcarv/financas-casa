@@ -551,14 +551,44 @@ if (sessionStorage.getItem('auth')==='ok') {
 // ══════════════════════════════════════════════════════
 // FETCH CSV
 // ══════════════════════════════════════════════════════
-async function fetchCSV(url) {
-  for (const u of [url,...PROXIES.map(fn=>fn(url))]) {
-    try {
-      const r=await fetch(u);
-      if(r.ok){const t=await r.text();if(t&&t.length>5)return t;}
-    } catch(_){}
+// Cache do último CSV por URL — para detectar mudança real
+const _csvCache = {};
+
+async function fetchCSV(url, maxRetries=3) {
+  const bust  = () => url + (url.includes('?') ? '&' : '?') + '_t=' + Date.now();
+  const opts  = { cache: 'no-store', headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate', 'Pragma': 'no-cache' } };
+
+  for (let tentativa = 0; tentativa < maxRetries; tentativa++) {
+    // Tenta URL direta com cache-busting
+    const urls = [bust(), ...PROXIES.map(fn => fn(bust()))];
+    for (const u of urls) {
+      try {
+        const r = await fetch(u, opts);
+        if (!r.ok) continue;
+        const txt = await r.text();
+        if (!txt || txt.length < 5) continue;
+
+        // Compara com cache anterior — se igual e não é 1ª tentativa, dado ainda está em cache no Google
+        const prev = _csvCache[url];
+        if (prev && prev === txt && tentativa < maxRetries - 1) {
+          // CSV idêntico — aguarda e tenta novamente
+          console.warn(`[fetchCSV] CSV idêntico ao anterior (tentativa ${tentativa+1}/${maxRetries}), aguardando...`);
+          await new Promise(res => setTimeout(res, 2000));
+          break; // sai do loop de urls, vai para próxima tentativa
+        }
+
+        _csvCache[url] = txt;
+        return txt;
+      } catch(_) {}
+    }
   }
-  throw new Error('Falha ao carregar: '+url);
+
+  // Última tentativa — retorna cache antigo se existir, evita tela em branco
+  if (_csvCache[url]) {
+    console.warn('[fetchCSV] Usando cache local como fallback');
+    return _csvCache[url];
+  }
+  throw new Error('Falha ao carregar: ' + url);
 }
 
 function csvSplit(line) {
@@ -734,7 +764,12 @@ async function carregarTudo(manual=false) {
   } catch(e) {
     completarBarra(true);
     setStatus('Erro ao carregar', true);
-    mostrarToastRico('⚠', 'Falha ao atualizar', 'Verifique a conexão e tente novamente', 'error');
+    // Se ainda tiver dados em tela, mostra aviso mais suave
+    if (rawLanc && rawLanc.length > 0) {
+      mostrarToastRico('⚠', 'Usando dados anteriores', 'Não foi possível buscar dados novos', 'error');
+    } else {
+      mostrarToastRico('⚠', 'Falha ao atualizar', 'Verifique a conexão e tente novamente', 'error');
+    }
   }
 }
 

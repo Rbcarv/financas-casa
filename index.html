@@ -1078,16 +1078,16 @@ function renderGeral(){
     <div class="metric"><div class="metric-label">Lançamentos</div><div class="metric-value blue">${lancs.length}</div><div class="metric-sub">incluindo parcelas</div></div>`;
 
   const totCats=cfg.cats.map(c=>(gR[c]||0)+(gF[c]||0));
-  // Legenda: só categorias com gasto real
-  document.getElementById('leg-cat').innerHTML = catFiltIdx.map(i =>
-    `<span class="legend-item"><span class="legend-dot" style="background:${cfg.cores[i]||CORES_PADRAO[i%CORES_PADRAO.length]}"></span>${cfg.cats[i]}</span>`
-  ).join('') || '<span style="font-size:11px;color:var(--text-faint)">Nenhum gasto no mês</span>';
   // Filtra só categorias com gasto real > 0
   const catFiltIdx = cfg.cats.map((_,i)=>i).filter(i=>totCats[i]>0);
   const catFiltLabels = catFiltIdx.map(i=>cfg.cats[i]);
   const catFiltData   = catFiltIdx.map(i=>totCats[i]);
   const catFiltCores  = catFiltIdx.map(i=>cfg.cores[i]||CORES_PADRAO[i%CORES_PADRAO.length]);
   const catFiltTotal  = soma(catFiltData)||1;
+  // Legenda: só categorias com gasto real
+  document.getElementById('leg-cat').innerHTML = catFiltIdx.map(i =>
+    `<span class="legend-item"><span class="legend-dot" style="background:${cfg.cores[i]||CORES_PADRAO[i%CORES_PADRAO.length]}"></span>${cfg.cats[i]}</span>`
+  ).join('') || '<span style="font-size:11px;color:var(--text-faint)">Nenhum gasto no mês</span>';
 
   mkChart('cCat',{type:'doughnut',data:{labels:catFiltLabels,datasets:[{data:catFiltData,backgroundColor:catFiltCores,borderWidth:2.5,borderColor:'#fff',hoverOffset:8}]},options:{responsive:true,maintainAspectRatio:false,cutout:'55%',plugins:{
     legend:{

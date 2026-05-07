@@ -1804,15 +1804,11 @@ function aplicarNomesPessoas() {
   navItems.forEach(el => {
     if (el.getAttribute('onclick')?.includes("'rapha'")) {
       const txt = el.childNodes[el.childNodes.length-1];
-      if (txt && txt.nodeType===3) txt.textContent = '
-      '+p1()+'
-    ';
+      if (txt && txt.nodeType===3) txt.textContent = ' ' + p1();
     }
     if (el.getAttribute('onclick')?.includes("'fernanda'")) {
       const txt = el.childNodes[el.childNodes.length-1];
-      if (txt && txt.nodeType===3) txt.textContent = '
-      '+p2()+'
-    ';
+      if (txt && txt.nodeType===3) txt.textContent = ' ' + p2();
     }
   });
   // Re-renderiza a aba ativa se for de pessoa

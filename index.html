@@ -594,15 +594,19 @@ function expandirParcelas(lancs) {
     const ehParcelado = parcelado || nParc > 1;
     if (!ehParcelado) {
       // Lançamento simples:
-      // _mesKey vem sempre da DATA da compra — MÊS REF é só informativo (fatura de referência)
-      const mesKey = mesKeyDeData(r['DATA']); // null se DATA inválida; lancDoMes trata isso
+      // Se MÊS REF preenchido → aparece naquele mês (ignora DATA)
+      // Se MÊS REF vazio     → usa o mês da DATA normalmente
+      const mesRefDate = parseMesRef(mesRefStr);
+      const mesKey = mesRefDate
+        ? mesKeyDe(mesRefDate.getMonth(), mesRefDate.getFullYear())
+        : mesKeyDeData(r['DATA']);
       resultado.push({ ...r, _valParcela: valTotal, _parcAtual: null, _parcTotal: null, _mesKey: mesKey });
       continue;
     }
 
-    // Parcelado: mês inicial vem da DATA (MÊS REF não altera o início das parcelas)
-    const mesRefDate  = null; // reservado para uso futuro
-    const dataInicial = parseDateBR(r['DATA']);
+    // Parcelado: 1ª parcela começa no MÊS REF se preenchido, senão usa DATA
+    const mesRefDate  = parseMesRef(mesRefStr);
+    const dataInicial = mesRefDate || parseDateBR(r['DATA']);
     if (!dataInicial) { resultado.push({...r,_valParcela:valTotal,_parcAtual:null,_parcTotal:null,_mesKey:null}); continue; }
 
     const valParcela = valTotal / nParc;

@@ -624,6 +624,21 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
         </div>
       </div>
 
+      <div class="card mb" style="margin-bottom:12px">
+        <div class="card-title">📧 Email de backup</div>
+        <div style="padding:0 0 16px">
+          <div style="font-size:13px;color:var(--text-muted);margin-bottom:16px">Ao fechar o mês, um backup com os lançamentos em CSV é enviado automaticamente. O email principal é o da conta Google do Apps Script.</div>
+          <div style="margin-bottom:16px">
+            <div style="font-size:11px;font-weight:600;color:var(--text-faint);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">Email adicional (opcional)</div>
+            <input id="cfg-email-backup" type="email" style="width:100%;padding:10px 14px;border-radius:var(--radius-sm);border:1.5px solid var(--border-strong);background:var(--bg);font-family:'DM Sans',sans-serif;font-size:14px;color:var(--text);outline:none" placeholder="Ex: seuemail@email.com">
+            <div style="font-size:11px;color:var(--text-faint);margin-top:6px">O backup também será enviado para este endereço.</div>
+          </div>
+          <button onclick="salvarEmailBackup()" style="width:100%;padding:12px;border-radius:var(--radius-sm);border:none;background:var(--rapha);color:#fff;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;cursor:pointer">
+            ✓ Salvar email
+          </button>
+        </div>
+      </div>
+
       <div class="card mb" style="margin-bottom:12px" id="cfg-metas-card">
         <div class="card-title">🎯 Metas mensais por categoria</div>
         <div style="padding:0 0 4px">
@@ -1604,6 +1619,7 @@ async function confirmarFechamento() {
   const obs         = document.getElementById('modal-obs').value;
 
   try {
+    const emailBackup = localStorage.getItem('fc_email_backup') || '';
     const resp = await fetch(APPS_SCRIPT_URL, {
       method: 'POST',
       body: JSON.stringify({
@@ -1611,7 +1627,8 @@ async function confirmarFechamento() {
         pagamento: {
           mes, quemPagou, quemRecebeu: quemRecebe,
           valor: valorAjuste, dataPagamento: dataPgto,
-          formaPgto, observacao: obs
+          formaPgto, observacao: obs,
+          emailBackup: emailBackup
         }
       })
     });
@@ -2413,7 +2430,21 @@ function renderConfiguracoes() {
   atualizarPreviewPessoa(2, p2());
   const info = document.getElementById('cfg-lancamentos-info');
   if (info) info.textContent = `Total de lançamentos carregados: ${rawLanc?.length || 0}`;
+  // Carrega email de backup salvo
+  const emailInput = document.getElementById('cfg-email-backup');
+  if (emailInput) emailInput.value = localStorage.getItem('fc_email_backup') || 'raphael.rbs@uol.com.br';
   renderMetasConfig();
+}
+
+function salvarEmailBackup() {
+  const input = document.getElementById('cfg-email-backup');
+  const email = (input?.value || '').trim();
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    mostrarToastRico('⚠','Email inválido','Verifique o endereço digitado','error');
+    return;
+  }
+  localStorage.setItem('fc_email_backup', email);
+  mostrarToastRico('✅', 'Email salvo!', email ? `Backup também enviado para ${email}` : 'Email adicional removido', 'success');
 }
 
 function renderMetasConfig() {

@@ -1076,10 +1076,26 @@ function limparStr(s) {
     .toLowerCase();
 }
 
+// Mapeamento manual de varia\u00E7\u00F5es conhecidas
+const CAT_ALIASES = {
+  'casa & reforma':   'Casa & Reformas',
+  'casa e reforma':   'Casa & Reformas',
+  'casa & reformas':  'Casa & Reformas',
+  'casa e reformas':  'Casa & Reformas',
+  'streaming':        'Streaming & Assinaturas',
+  'assinaturas':      'Streaming & Assinaturas',
+  'alimentacao':      'Alimenta\u00E7\u00E3o',
+  'alimenta\u00E7\u00E3o':      'Alimenta\u00E7\u00E3o',
+};
+
 function normalizarCategoria(cat) {
   if (!cat) return 'Outros';
   const c = cat.trim().replace(/[\u00A0\u200B\u200C\u200D\uFEFF]/g, '');
   if (!c) return 'Outros';
+
+  // 0. Alias manual (varia\u00E7\u00F5es conhecidas)
+  const cAlias = CAT_ALIASES[c.toLowerCase()];
+  if (cAlias) return cAlias;
 
   // 1. Busca exata
   if (cfg.cats.includes(c)) return c;
@@ -1357,13 +1373,13 @@ async function confirmarFechamento() {
     if (json.ok) {
       _historicoFechamentos = null; // força recarregar
       fecharModal();
-      showToast('✅','Mês fechado!',`${mesToLabel(mes)} registrado com sucesso.`);
+      mostrarToastRico('✅','Mês fechado!',mesToLabel(mes)+' registrado com sucesso.');
       await renderEquilibrio();
     } else {
-      showToast('❌','Erro',json.msg || 'Não foi possível fechar o mês.');
+      mostrarToastRico('❌','Erro',json.msg || 'Não foi possível fechar o mês.','error');
     }
   } catch(e) {
-    showToast('❌','Erro de conexão','Verifique o Apps Script.');
+    mostrarToastRico('❌','Erro de conexão','Verifique o Apps Script.','error');
   }
   btn.disabled = false;
   btn.textContent = 'Confirmar ✓';

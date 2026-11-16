@@ -1536,9 +1536,11 @@ async function confirmarLancamento() {
   btn.textContent = 'Enviando...';
 
   try {
-    const resp = await fetch(APPS_SCRIPT_URL, {
+    // Usa text/plain para evitar preflight CORS do Apps Script
+    await fetch(APPS_SCRIPT_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify({
         acao: 'inserirLancamentos',
         lancamentos: [{
@@ -1559,17 +1561,10 @@ async function confirmarLancamento() {
         }]
       })
     });
-    const json = await resp.json();
-    if (json.ok) {
-      fecharModalLancamento();
-      mostrarToastRico('✅', 'Lançamento adicionado!', `${desc} — ${fmt(valor)}`, 'success');
-      // Recarrega dados após 1.5s para o Sheets processar
-      setTimeout(() => carregarTudo(true), 1500);
-    } else {
-      mostrarToastRico('❌', 'Erro', json.msg || 'Não foi possível salvar', 'error');
-      btn.disabled = false;
-      btn.textContent = 'Adicionar ✓';
-    }
+    // no-cors não retorna corpo — assumimos sucesso e recarregamos
+    fecharModalLancamento();
+    mostrarToastRico('✅', 'Lançamento enviado!', `${desc} — ${fmt(valor)} · atualizando...`, 'success');
+    setTimeout(() => carregarTudo(true), 2500);
   } catch(e) {
     mostrarToastRico('❌', 'Erro de conexão', 'Verifique o Apps Script', 'error');
     btn.disabled = false;

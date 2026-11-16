@@ -201,6 +201,39 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 
 /* PARCELA INFO */
 .parc-timeline{background:var(--bg);border-radius:var(--radius-sm);padding:12px 16px;margin-top:8px;font-size:12px;color:var(--text-muted);border-left:3px solid #6D28D9}
+
+/* FECHAR MÊS */
+.btn-fechar-mes{display:inline-flex;align-items:center;gap:8px;padding:10px 20px;background:var(--green);color:#fff;border:none;border-radius:var(--radius-sm);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;cursor:pointer;transition:opacity .15s}
+.btn-fechar-mes:hover{opacity:.85}
+.btn-fechar-mes.fechado{background:var(--text-faint);cursor:default}
+.mes-status-badge{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;background:var(--green-light);color:var(--green);border-radius:20px;font-size:13px;font-weight:600;border:1px solid #bbf7d0}
+
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;display:flex;align-items:center;justify-content:center;animation:fadeIn .15s}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.modal-box{background:var(--surface);border-radius:var(--radius);padding:32px;width:420px;box-shadow:0 20px 60px rgba(0,0,0,.2);position:relative}
+.modal-title{font-size:17px;font-weight:600;margin-bottom:4px}
+.modal-sub{font-size:13px;color:var(--text-muted);margin-bottom:24px}
+.modal-field{margin-bottom:16px}
+.modal-label{font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:6px;display:block;text-transform:uppercase;letter-spacing:.04em}
+.modal-input{width:100%;padding:10px 12px;border:1px solid var(--border-strong);border-radius:var(--radius-sm);font-family:'DM Sans',sans-serif;font-size:14px;color:var(--text);background:var(--bg);outline:none;transition:border .15s}
+.modal-input:focus{border-color:var(--rapha)}
+.modal-actions{display:flex;gap:10px;margin-top:24px;justify-content:flex-end}
+.modal-btn{padding:10px 22px;border-radius:var(--radius-sm);border:none;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;cursor:pointer}
+.modal-btn.cancel{background:var(--bg);color:var(--text-muted);border:1px solid var(--border-strong)}
+.modal-btn.confirm{background:var(--green);color:#fff}
+.modal-btn.confirm:hover{opacity:.85}
+.modal-btn:disabled{opacity:.5;cursor:default}
+.modal-ajuste-info{background:var(--green-light);border:1px solid #bbf7d0;border-radius:var(--radius-sm);padding:14px 16px;margin-bottom:20px;font-size:13px}
+.modal-ajuste-info strong{color:var(--green)}
+
+/* HISTÓRICO EQUILÍBRIO */
+.hist-row{display:grid;grid-template-columns:100px 1fr 1fr 100px 110px 90px;gap:12px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border);font-size:13px}
+.hist-row.header{font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em;background:var(--bg);border-radius:var(--radius-sm) var(--radius-sm) 0 0}
+.hist-mes-badge{font-weight:700;color:var(--rapha)}
+.saldo-acumulado{background:var(--amber-light);border:1px solid #fde68a;border-radius:var(--radius-sm);padding:14px 20px;display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
+.saldo-acumulado .label{font-size:13px;color:var(--amber)}
+.saldo-acumulado .valor{font-size:22px;font-weight:700;color:var(--amber)}
 </style>
 </head>
 <body>
@@ -224,7 +257,6 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
       onkeydown="if(event.key==='Enter')tentarLogin()">
     <button class="login-btn" onclick="tentarLogin()">Entrar</button>
     <div class="login-error" id="login-error"></div>
-    <div class="login-hint">Senha padrão: <strong>casa2025</strong></div>
   </div>
 </div>
 
@@ -346,9 +378,61 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 
     <!-- EQUILÍBRIO -->
     <div class="tab-content" id="tab-equilibrio">
-      <div class="page-header"><div><div class="page-title">Equilíbrio</div><div class="page-sub">Quem pagou mais e como compensar</div></div></div>
-      <div id="eq-content"></div>
-      <div class="card mb"><div class="card-title">Histórico de equilíbrio mensal</div><div style="position:relative;height:200px"><canvas id="cEq"></canvas></div></div>
+      <div class="page-header">
+        <div><div class="page-title">Equilíbrio</div><div class="page-sub">Quem pagou mais e como compensar</div></div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <div style="display:flex;gap:4px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:3px">
+            <button id="eq-tab-btn-mes" onclick="setEqTab('mes')" style="padding:6px 14px;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;background:var(--surface);color:var(--text)">Mês atual</button>
+            <button id="eq-tab-btn-hist" onclick="setEqTab('hist')" style="padding:6px 14px;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;background:transparent;color:var(--text-muted)">Histórico</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sub-tab: Mês atual -->
+      <div id="eq-tab-mes">
+        <div id="eq-status-bar" style="margin-bottom:16px"></div>
+        <div id="eq-content"></div>
+        <div class="card mb"><div class="card-title">Evolução do equilíbrio mensal</div><div style="position:relative;height:200px"><canvas id="cEq"></canvas></div></div>
+      </div>
+
+      <!-- Sub-tab: Histórico -->
+      <div id="eq-tab-hist" style="display:none">
+        <div id="eq-hist-content"></div>
+      </div>
+    </div>
+
+    <!-- MODAL FECHAR MÊS -->
+    <div class="modal-overlay" id="modal-fechar" style="display:none" onclick="if(event.target===this)fecharModal()">
+      <div class="modal-box">
+        <div class="modal-title">Fechar mês</div>
+        <div class="modal-sub" id="modal-fechar-sub">Registrar pagamento do equilíbrio</div>
+        <div class="modal-ajuste-info" id="modal-ajuste-info"></div>
+        <div class="modal-field">
+          <label class="modal-label">Quem pagou</label>
+          <select class="modal-input" id="modal-quem-pagou"></select>
+        </div>
+        <div class="modal-field">
+          <label class="modal-label">Data do pagamento</label>
+          <input class="modal-input" type="date" id="modal-data-pgto">
+        </div>
+        <div class="modal-field">
+          <label class="modal-label">Forma de pagamento</label>
+          <select class="modal-input" id="modal-forma-pgto">
+            <option>Pix</option>
+            <option>Dinheiro</option>
+            <option>Transferência</option>
+            <option>TED/DOC</option>
+          </select>
+        </div>
+        <div class="modal-field">
+          <label class="modal-label">Observação (opcional)</label>
+          <input class="modal-input" type="text" id="modal-obs" placeholder="Ex: pago via Nubank">
+        </div>
+        <div class="modal-actions">
+          <button class="modal-btn cancel" onclick="fecharModal()">Cancelar</button>
+          <button class="modal-btn confirm" id="modal-btn-confirmar" onclick="confirmarFechamento()">Confirmar ✓</button>
+        </div>
+      </div>
     </div>
 
     <!-- METAS -->
@@ -542,7 +626,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 // ══════════════════════════════════════════════════════
 // CONFIGURAÇÃO
 // ══════════════════════════════════════════════════════
-const SENHA            = 'casa2025';
+const _sp = ['MTUwMQ=='];
+const _sr = s => s.split('').map(c=>{if(c>='a'&&c<='z')return String.fromCharCode(((c.charCodeAt(0)-97+13)%26)+97);if(c>='A'&&c<='Z')return String.fromCharCode(((c.charCodeAt(0)-65+13)%26)+65);return c;}).join('');
+const SENHA = _sr(atob(_sp[0]));
 const AUTO_REFRESH_MIN = 5;
 // ── IDs ofuscados — não editar manualmente ──
 const _a = ['2CNPK-1iFxYhbOA2fdG8b','AWtTKeeetJ-hxbdz6JOi6','wpPCnUnno1XcFcZbk0VPB','C_i1-0RvtyV5ejZt3cU02ki'];
@@ -565,6 +651,8 @@ const PROXIES = [
 const CORES_PADRAO = ['#2563EB','#7C3AED','#059669','#D97706','#DB2777','#0891B2','#0F766E','#9333EA','#EA580C','#65A30D','#1D4ED8','#BE185D'];
 const MESES_NOMES  = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 const MESES_ABREV  = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+const _as = ["dWdnY2Y6Ly9mcGV2Y2cudGJidHlyLnBiei96bnA=","ZWJmL2YvTlhzbHBva21hUEVmNDZuR2dMLU1SeWk=","TTYtOWV5SkQ1dmFEYTllZ1JXVWg1empYY3VXTWE=","VE8ycVlMOUNudWE3cklSYVExVHVHai9ya3Jw"];
+const APPS_SCRIPT_URL = _sr(_as.map(p=>atob(p)).join(''));
 
 // ══════════════════════════════════════════════════════
 // ESTADO
@@ -1131,36 +1219,199 @@ function renderGeral(){
 }
 
 // ── EQUILÍBRIO ──
-function renderEquilibrio(){
+// Cache do histórico de meses fechados (carregado do Apps Script)
+let _historicoFechamentos = null;
+
+async function carregarHistorico() {
+  if (_historicoFechamentos !== null) return _historicoFechamentos;
+  try {
+    const url = APPS_SCRIPT_URL + '?acao=listarHistorico&_t=' + Date.now();
+    const resp = await fetch(url);
+    const json = await resp.json();
+    _historicoFechamentos = json.historico || [];
+  } catch(e) {
+    _historicoFechamentos = [];
+  }
+  return _historicoFechamentos;
+}
+
+function mesFechado(mesKey) {
+  if (!_historicoFechamentos) return false;
+  // mesKey formato: MM/YYYY
+  return _historicoFechamentos.some(h => h.mes === mesKey);
+}
+
+function setEqTab(tab) {
+  document.getElementById('eq-tab-mes').style.display  = tab==='mes'  ? '' : 'none';
+  document.getElementById('eq-tab-hist').style.display = tab==='hist' ? '' : 'none';
+  document.getElementById('eq-tab-btn-mes').style.background  = tab==='mes'  ? 'var(--surface)' : 'transparent';
+  document.getElementById('eq-tab-btn-mes').style.color       = tab==='mes'  ? 'var(--text)'    : 'var(--text-muted)';
+  document.getElementById('eq-tab-btn-hist').style.background = tab==='hist' ? 'var(--surface)' : 'transparent';
+  document.getElementById('eq-tab-btn-hist').style.color      = tab==='hist' ? 'var(--text)'    : 'var(--text-muted)';
+  if (tab === 'hist') renderHistoricoFechamentos();
+}
+
+async function renderEquilibrio(){
   const lancs=lancDoMes(mesSel);
   const gR=gastosCat(lancs,'Rapha'),gF=gastosCat(lancs,'Fernanda');
   const totR=totalDespesas(lancs,'Rapha'),totF=totalDespesas(lancs,'Fernanda'),totG=totR+totF;
   const diff=Math.abs(totR-totF),maisR=totR>=totF,c1=maisR?'blue':'pink',c2=maisR?'pink':'blue';
 
-  const desp=lancs.filter(r=>r['TIPO']==='Despesa');
-  // Calcula quanto cada um deveria pagar (divisão 50/50 do total)
   const idealCada = totG / 2;
-  const diffPag   = totR - totF; // positivo = Rapha pagou mais
+  const diffPag   = totR - totF;
   const quemPagouMais = diffPag >= 0 ? p1() : p2();
   const quemDeve      = diffPag >= 0 ? p2() : p1();
   const valorAjuste   = Math.abs(diffPag) / 2;
 
+  // Carrega histórico para verificar se mês já foi fechado
+  await carregarHistorico();
+  const jafechado = mesFechado(mesSel);
+
+  // Barra de status do mês
+  const statusBar = document.getElementById('eq-status-bar');
+  if (jafechado) {
+    const reg = _historicoFechamentos.find(h => h.mes === mesSel);
+    statusBar.innerHTML = `<div class="mes-status-badge">✅ Mês fechado — ${reg.quemPagou} pagou ${fmt(reg.valor)} via ${reg.formaPgto} em ${reg.dataPagamento}</div>`;
+  } else {
+    statusBar.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:4px">
+        <span style="font-size:13px;color:var(--text-muted)">Este mês ainda não foi fechado</span>
+        <button class="btn-fechar-mes" onclick="abrirModalFecharMes('${mesSel}',${valorAjuste},'${quemDeve}','${quemPagouMais}')">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 5L6 12l-3-3"/></svg>
+          Fechar mês
+        </button>
+      </div>`;
+  }
+
   document.getElementById('eq-content').innerHTML=`
     <div class="grid2 mb">
-      <div class="eq-card ${c1}"><div class="eq-label ${c1}">${maisR?'Rapha':'Fernanda'} pagou a mais</div><div class="eq-value ${c1}">${fmt(diff)}</div><div class="eq-desc ${c1}">${maisR?'Fernanda':'Rapha'} deve R$ ${Math.round(diff/2).toLocaleString('pt-BR')} para equilibrar</div></div>
+      <div class="eq-card ${c1}"><div class="eq-label ${c1}">${maisR?p1():p2()} pagou a mais</div><div class="eq-value ${c1}">${fmt(diff)}</div><div class="eq-desc ${c1}">${maisR?p2():p1()} deve R$ ${Math.round(diff/2).toLocaleString('pt-BR')} para equilibrar</div></div>
       <div class="eq-card ${c2}"><div class="eq-label ${c2}">Ajuste sugerido</div><div class="eq-value ${c2}">${fmt(valorAjuste)}</div><div class="eq-desc ${c2}">${quemDeve} repassa ${fmt(valorAjuste)} para ${quemPagouMais} equilibrar</div></div>
     </div>
     <div class="card mb"><div class="card-title">Comparativo detalhado</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
-        <div><div style="display:flex;align-items:center;gap:10px;margin-bottom:14px"><div class="avatar r" style="width:36px;height:36px;font-size:13px">RA</div><div><div style="font-size:14px;font-weight:600">Rapha</div><div style="font-size:12px;color:var(--text-muted)">${pct(totR,totG||1)}% do total</div></div></div>
+        <div><div style="display:flex;align-items:center;gap:10px;margin-bottom:14px"><div class="avatar r" style="width:36px;height:36px;font-size:13px">RA</div><div><div style="font-size:14px;font-weight:600">${p1()}</div><div style="font-size:12px;color:var(--text-muted)">${pct(totR,totG||1)}% do total</div></div></div>
         ${barra('Pagou',totR,totG,'#2563EB')}${barra('Ideal (50%)',idealCada,totG,'#93C5FD')}</div>
-        <div><div style="display:flex;align-items:center;gap:10px;margin-bottom:14px"><div class="avatar f" style="width:36px;height:36px;font-size:13px">FE</div><div><div style="font-size:14px;font-weight:600">Fernanda</div><div style="font-size:12px;color:var(--text-muted)">${pct(totF,totG||1)}% do total</div></div></div>
+        <div><div style="display:flex;align-items:center;gap:10px;margin-bottom:14px"><div class="avatar f" style="width:36px;height:36px;font-size:13px">FE</div><div><div style="font-size:14px;font-weight:600">${p2()}</div><div style="font-size:12px;color:var(--text-muted)">${pct(totF,totG||1)}% do total</div></div></div>
         ${barra('Pagou',totF,totG,'#DB2777')}${barra('Ideal (50%)',idealCada,totG,'#F9A8D4')}</div>
       </div>
     </div>`;
 
   const hist=mesesDisp.map(m=>{const l=lancDoMes(m);const r=totalDespesas(l,'Rapha'),f=totalDespesas(l,'Fernanda');return r>f?r-f:-(f-r);});
-  mkChart('cEq',{type:'bar',data:{labels:mesesDisp.map(mesToLabel),datasets:[{data:hist,backgroundColor:hist.map(v=>v>=0?'#2563EB':'#DB2777'),borderRadius:4,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' '+fmt(Math.abs(c.raw))+(c.raw>=0?' (Rapha pagou mais)':' (Fernanda pagou mais)')}}},scales:{y:{ticks:{callback:v=>'R$'+Math.abs(v).toLocaleString('pt-BR'),font:{size:10}}}}}});
+  mkChart('cEq',{type:'bar',data:{labels:mesesDisp.map(mesToLabel),datasets:[{data:hist,backgroundColor:hist.map(v=>v>=0?'#2563EB':'#DB2777'),borderRadius:4,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' '+fmt(Math.abs(c.raw))+(c.raw>=0?` (${p1()} pagou mais)`:` (${p2()} pagou mais)`)}}},scales:{y:{ticks:{callback:v=>'R$'+Math.abs(v).toLocaleString('pt-BR'),font:{size:10}}}}}});
+}
+
+// ── MODAL FECHAR MÊS ──
+function abrirModalFecharMes(mes, valorAjuste, quemDeve, quemRecebe) {
+  document.getElementById('modal-fechar-sub').textContent = `Fechar ${mesToLabel(mes)}`;
+  document.getElementById('modal-ajuste-info').innerHTML =
+    `Ajuste calculado: <strong>${fmt(valorAjuste)}</strong><br><span style="color:var(--text-muted);font-size:12px">${quemDeve} → ${quemRecebe}</span>`;
+  // Preenche o select de quem pagou
+  const sel = document.getElementById('modal-quem-pagou');
+  sel.innerHTML = [p1(), p2()].map(p => `<option value="${p}">${p}</option>`).join('');
+  sel.value = quemDeve;
+  // Data padrão = hoje
+  const hoje = new Date();
+  document.getElementById('modal-data-pgto').value =
+    hoje.getFullYear() + '-' + String(hoje.getMonth()+1).padStart(2,'0') + '-' + String(hoje.getDate()).padStart(2,'0');
+  document.getElementById('modal-obs').value = '';
+  // Guarda dados no modal para usar no confirmar
+  document.getElementById('modal-fechar').dataset.mes         = mes;
+  document.getElementById('modal-fechar').dataset.valorAjuste = valorAjuste;
+  document.getElementById('modal-fechar').dataset.quemRecebe  = quemRecebe;
+  document.getElementById('modal-fechar').style.display = 'flex';
+}
+
+function fecharModal() {
+  document.getElementById('modal-fechar').style.display = 'none';
+}
+
+async function confirmarFechamento() {
+  const btn = document.getElementById('modal-btn-confirmar');
+  btn.disabled = true;
+  btn.textContent = 'Enviando...';
+
+  const modal       = document.getElementById('modal-fechar');
+  const mes         = modal.dataset.mes;
+  const valorAjuste = parseFloat(modal.dataset.valorAjuste);
+  const quemRecebe  = modal.dataset.quemRecebe;
+  const quemPagou   = document.getElementById('modal-quem-pagou').value;
+  const dataPgto    = document.getElementById('modal-data-pgto').value.split('-').reverse().join('/');
+  const formaPgto   = document.getElementById('modal-forma-pgto').value;
+  const obs         = document.getElementById('modal-obs').value;
+
+  try {
+    const resp = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      body: JSON.stringify({
+        acao: 'fecharMes',
+        pagamento: {
+          mes, quemPagou, quemRecebeu: quemRecebe,
+          valor: valorAjuste, dataPagamento: dataPgto,
+          formaPgto, observacao: obs
+        }
+      })
+    });
+    const json = await resp.json();
+    if (json.ok) {
+      _historicoFechamentos = null; // força recarregar
+      fecharModal();
+      showToast('✅','Mês fechado!',`${mesToLabel(mes)} registrado com sucesso.`);
+      await renderEquilibrio();
+    } else {
+      showToast('❌','Erro',json.msg || 'Não foi possível fechar o mês.');
+    }
+  } catch(e) {
+    showToast('❌','Erro de conexão','Verifique o Apps Script.');
+  }
+  btn.disabled = false;
+  btn.textContent = 'Confirmar ✓';
+}
+
+async function renderHistoricoFechamentos() {
+  const el = document.getElementById('eq-hist-content');
+  el.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:20px">Carregando...</div>';
+  await carregarHistorico();
+  const hist = _historicoFechamentos || [];
+
+  if (!hist.length) {
+    el.innerHTML = '<div class="card" style="text-align:center;padding:40px;color:var(--text-muted)">Nenhum mês fechado ainda.<br><small>Use o botão "Fechar mês" na aba Mês atual.</small></div>';
+    return;
+  }
+
+  // Saldo acumulado de meses ainda em aberto
+  const mesesAbertos = mesesDisp.filter(m => !mesFechado(m));
+  let saldoAcumulado = 0;
+  mesesAbertos.forEach(m => {
+    const lancs = lancDoMes(m);
+    const totR = totalDespesas(lancs, 'Rapha'), totF = totalDespesas(lancs, 'Fernanda');
+    saldoAcumulado += Math.abs(totR - totF) / 2;
+  });
+
+  let html = '';
+  if (mesesAbertos.length) {
+    html += `<div class="saldo-acumulado mb">
+      <div><div class="label">⚠️ Saldo acumulado em aberto</div><div style="font-size:12px;color:var(--amber);margin-top:2px">${mesesAbertos.length} mês(es) não fechado(s)</div></div>
+      <div class="valor">${fmt(saldoAcumulado)}</div>
+    </div>`;
+  }
+
+  html += `<div class="card">
+    <div class="hist-row header">
+      <span>Mês</span><span>Quem pagou</span><span>Quem recebeu</span><span>Valor</span><span>Data</span><span>Forma</span>
+    </div>`;
+  [...hist].reverse().forEach(h => {
+    html += `<div class="hist-row">
+      <span class="hist-mes-badge">${h.mes}</span>
+      <span>${h.quemPagou}</span>
+      <span style="color:var(--text-muted)">${h.quemRecebeu}</span>
+      <span style="font-weight:600">${fmt(Number(h.valor))}</span>
+      <span style="color:var(--text-muted)">${h.dataPagamento}</span>
+      <span><span style="background:var(--bg);border:1px solid var(--border);border-radius:20px;padding:2px 10px;font-size:12px">${h.formaPgto}</span></span>
+    </div>`;
+  });
+  html += '</div>';
+  el.innerHTML = html;
 }
 
 function barra(l,v,max,cor){const p=max?Math.min(pct(v,max),100):0;return`<div class="bar-row"><span class="bar-label">${l}</span><div class="bar-track"><div class="bar-fill" style="width:${p}%;background:${cor}"></div></div><span class="bar-val">${fmt(v)}</span></div>`;}

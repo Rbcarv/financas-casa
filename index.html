@@ -783,7 +783,7 @@ const PROXIES = [
 const CORES_PADRAO = ['#2563EB','#7C3AED','#059669','#D97706','#DB2777','#0891B2','#0F766E','#9333EA','#EA580C','#65A30D','#1D4ED8','#BE185D'];
 const MESES_NOMES  = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 const MESES_ABREV  = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
-const _as = ["dWdnY2Y6Ly9mcGV2Y2cudGJidHlyLnBiei96bnA=","ZWJmL2YvTlhzbHBvbWlpY0pUcXZwSzUzcEtUX3I=","RHNxX2FESGktZFBYWmU3Q1JqRGVhV3RURFhkQVc=","MWM2V3JBNUc1YTBxZzNwNVNOZDV3RC9ya3Jw"];
+const _as = ["dWdnY2Y6Ly9mcGV2Y2cudGJidHlyLnBiei96bnA=","ZWJmL2YvTlhzbHBvbUlXMnFXTXdGM2xhdEp2cjU=","M2lZbU1LT3doX0hNN3RVWmdmNk83WmZXQmZWZEY=","d3Jrd2dFX3ZraTRfYWxsaDJhWlRsTi9ya3Jw"];
 const APPS_SCRIPT_URL = _sr(_as.map(p=>atob(p)).join(''));
 
 // ══════════════════════════════════════════════════════
@@ -994,7 +994,8 @@ async function carregarConfig() {
     cfg={cats:['Moradia','Streaming & Assinaturas','Alimentação','Transporte','Compras','Casa & Reformas'],cores:CORES_PADRAO,metas:{Moradia:2000,'Streaming & Assinaturas':120,Alimentação:1800,Transporte:800,Compras:1000,'Casa & Reformas':1500},pgtos:['Crédito','Débito','PIX','Dinheiro'],pgto_cores:CORES_PADRAO};
   }
   // Aplica metas salvas localmente (têm prioridade sobre o Sheets)
-  const metasLocais = JSON.parse(localStorage.getItem('fc_metas') || 'null');
+  // Aplica metas do mês vigente se existirem (prioridade sobre Sheets)
+  const metasLocais = metasDoMes(mesSel || mesAtualKey());
   if (metasLocais) cfg.metas = { ...cfg.metas, ...metasLocais };
 }
 
@@ -1619,7 +1620,8 @@ async function confirmarFechamento() {
   const obs         = document.getElementById('modal-obs').value;
 
   try {
-    const emailBackup = localStorage.getItem('fc_email_backup') || '';
+    const emailBackup  = localStorage.getItem('fc_email_backup') || '';
+    const snapshotMetas = metasVigentes(mes); // trava as metas do mês ao fechar
     const resp = await fetch(APPS_SCRIPT_URL, {
       method: 'POST',
       body: JSON.stringify({
@@ -1628,13 +1630,16 @@ async function confirmarFechamento() {
           mes, quemPagou, quemRecebeu: quemRecebe,
           valor: valorAjuste, dataPagamento: dataPgto,
           formaPgto, observacao: obs,
-          emailBackup: emailBackup
+          emailBackup: emailBackup,
+          snapshotMetas: snapshotMetas
         }
       })
     });
     const json = await resp.json();
     if (json.ok) {
       _historicoFechamentos = null; // força recarregar
+      // Trava as metas do mês fechado no localStorage
+      localStorage.setItem(metasKey(mes), JSON.stringify(snapshotMetas));
       fecharModal();
       mostrarToastRico('✅','Mês fechado!',mesToLabel(mes)+' registrado com sucesso.');
       await renderEquilibrio();
@@ -1702,8 +1707,9 @@ function renderMetas(){
   const gR=gastosCat(lancs,'Rapha'),gF=gastosCat(lancs,'Fernanda');
   let html='',ok=0,att=0,over=0;
   if(!cfg.cats.length){document.getElementById('metas-bars').innerHTML=vazioHTML('Config não carregada','Verifique a aba Config na planilha.');return;}
+  const metasAtivas = metasVigentes(mesSel); // usa metas do mês selecionado
   cfg.cats.forEach((c,i)=>{
-    const gasto=(gR[c]||0)+(gF[c]||0),meta=cfg.metas[c]||0;
+    const gasto=(gR[c]||0)+(gF[c]||0),meta=metasAtivas[c]||0;
     const ratio=meta?gasto/meta:0,p=Math.min(Math.round(ratio*100),100);
     const[cor,cls,status]=ratio>1?['#DC2626','over','Acima da meta']:ratio>.85?['#D97706','warn','Atenção']:['#16A34A','ok','Dentro da meta'];
     if(ratio>1)over++;else if(ratio>.85)att++;else ok++;
@@ -2447,14 +2453,33 @@ function salvarEmailBackup() {
   mostrarToastRico('✅', 'Email salvo!', email ? `Backup também enviado para ${email}` : 'Email adicional removido', 'success');
 }
 
+// Retorna chave localStorage para metas de um mês: "fc_metas_11/2026"
+function metasKey(mes) { return 'fc_metas_' + (mes || mesSel || mesAtualKey()); }
+
+// Lê metas de um mês específico (ou null se não existir)
+function metasDoMes(mes) {
+  return JSON.parse(localStorage.getItem(metasKey(mes)) || 'null');
+}
+
+// Retorna as metas vigentes para um mês: salvas localmente > cfg do Sheets
+function metasVigentes(mes) {
+  return metasDoMes(mes) || cfg.metas || {};
+}
+
 function renderMetasConfig() {
   const campos = document.getElementById('cfg-metas-campos');
   if (!campos || !cfg.cats || !cfg.cats.length) return;
 
-  // Carrega metas salvas localmente (sobrescreve as do Sheets se existirem)
-  const metasSalvas = JSON.parse(localStorage.getItem('fc_metas') || 'null') || cfg.metas || {};
+  const mes = mesSel || mesAtualKey();
+  const fechado = mesFechado(mes);
+  const metasSalvas = metasVigentes(mes);
 
-  campos.innerHTML = cfg.cats.map((cat, i) => {
+  // Aviso de mês fechado (somente leitura)
+  const aviso = fechado
+    ? `<div style="font-size:12px;color:var(--amber);background:var(--amber-light);border:1px solid #fde68a;border-radius:var(--radius-sm);padding:8px 12px;margin-bottom:12px">🔒 Mês <strong>${mesToLabel(mes)}</strong> já fechado — metas travadas</div>`
+    : `<div style="font-size:12px;color:var(--text-muted);margin-bottom:12px">Editando metas de: <strong>${mesToLabel(mes)}</strong></div>`;
+
+  campos.innerHTML = aviso + cfg.cats.map((cat, i) => {
     const cor = cfg.cores[i] || CORES_PADRAO[i % CORES_PADRAO.length];
     const val = metasSalvas[cat] || 0;
     return `
@@ -2466,11 +2491,15 @@ function renderMetasConfig() {
         <div style="display:flex;align-items:center;gap:6px">
           <span style="font-size:12px;color:var(--text-muted)">R$</span>
           <input type="number" id="meta-${i}" value="${val}" min="0" step="50"
-            style="flex:1;padding:8px 10px;border-radius:var(--radius-sm);border:1px solid var(--border-strong);background:var(--bg);font-family:'DM Mono',monospace;font-size:13px;color:var(--text);outline:none;-moz-appearance:textfield"
+            ${fechado ? 'disabled style="flex:1;padding:8px 10px;border-radius:var(--radius-sm);border:1px solid var(--border);background:#f5f5f5;font-family:\'DM Mono\',monospace;font-size:13px;color:var(--text-muted);outline:none;-moz-appearance:textfield"' : 'style="flex:1;padding:8px 10px;border-radius:var(--radius-sm);border:1px solid var(--border-strong);background:var(--bg);font-family:\'DM Mono\',monospace;font-size:13px;color:var(--text);outline:none;-moz-appearance:textfield"'}
             onfocus="this.select()">
         </div>
       </div>`;
   }).join('');
+
+  // Esconde botão salvar se mês fechado
+  const btn = document.querySelector('#cfg-metas-card button');
+  if (btn) btn.style.display = fechado ? 'none' : 'block';
 }
 
 function salvarMetas() {
@@ -2478,16 +2507,21 @@ function salvarMetas() {
     mostrarToastRico('⚠','Sem categorias','Carregue os dados primeiro','error');
     return;
   }
+  const mes = mesSel || mesAtualKey();
+  if (mesFechado(mes)) {
+    mostrarToastRico('🔒','Mês fechado','Não é possível alterar metas de um mês já fechado','error');
+    return;
+  }
   const novasMetas = {};
   cfg.cats.forEach((cat, i) => {
     const input = document.getElementById('meta-' + i);
     novasMetas[cat] = parseFloat(input?.value) || 0;
   });
-  // Salva localmente
-  localStorage.setItem('fc_metas', JSON.stringify(novasMetas));
+  // Salva com chave do mês
+  localStorage.setItem(metasKey(mes), JSON.stringify(novasMetas));
   // Aplica imediatamente no cfg em memória
   cfg.metas = novasMetas;
-  mostrarToastRico('✅', 'Metas salvas!', 'As metas foram atualizadas no dashboard', 'success');
+  mostrarToastRico('✅', 'Metas salvas!', `Metas de ${mesToLabel(mes)} atualizadas`, 'success');
 }
 
 function atualizarPreviewPessoa(num, nome) {

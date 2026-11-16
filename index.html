@@ -650,6 +650,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
     <!-- LANÇAMENTOS -->
     <div class="tab-content" id="tab-lancamentos">
       <div class="page-header"><div><div class="page-title">Lançamentos</div><div class="page-sub">Registros do mês — parcelas calculadas automaticamente</div></div></div>
+      <div class="filter-bar" id="lanc-filtros" style="margin-bottom:12px"></div>
       <div class="card"><div id="lanc-content"></div></div>
     </div>
 
@@ -1853,13 +1854,52 @@ function setComprasFiltro(who, cat) {
 }
 
 // ── LANÇAMENTOS ──
+let _lancFiltro = { pessoa: 'Todos', tipo: 'Todos' };
+
+function setLancFiltro(campo, valor) {
+  _lancFiltro[campo] = valor;
+  renderLancamentos();
+}
+
 function renderLancamentos(){
-  const lancs=lancDoMes(mesSel);
-  if(!lancs.length){document.getElementById('lanc-content').innerHTML=vazioHTML('Nenhum lançamento','Adicione registros na planilha.');return;}
+  const lancsAll = lancDoMes(mesSel);
+
+  // Monta barra de filtros
+  const pessoas = ['Todos', p1(), p2()];
+  const tipos   = ['Todos', 'Despesa', 'Receita'];
+  const corR = 'var(--rapha)', corF = 'var(--fernanda)';
+  const btnsPessoa = pessoas.map(p => {
+    const cor = p === p1() ? corR : p === p2() ? corF : 'var(--rapha)';
+    const isActive = _lancFiltro.pessoa === p;
+    return `<button class="filter-btn ${isActive?'active':''}" style="${isActive?'background:'+cor+';border-color:'+cor:''}" onclick="setLancFiltro('pessoa','${p}')">${p === 'Todos' ? '👥 Todos' : p === p1() ? '🔵 '+p : '🩷 '+p}</button>`;
+  }).join('');
+  const btnsTipo = tipos.filter(t => t !== 'Todos').map(t => {
+    const cor = t === 'Receita' ? 'var(--green)' : 'var(--red)';
+    const isActive = _lancFiltro.tipo === t;
+    return `<button class="filter-btn ${isActive?'active':''}" style="${isActive?'background:'+cor+';border-color:'+cor:''}" onclick="setLancFiltro('tipo','${t}')">${t === 'Receita' ? '💰' : '💸'} ${t}</button>`;
+  }).join('');
+  const btnLimpar = (_lancFiltro.pessoa !== 'Todos' || _lancFiltro.tipo !== 'Todos')
+    ? `<button class="filter-btn" style="margin-left:4px;color:var(--text-faint)" onclick="_lancFiltro={pessoa:'Todos',tipo:'Todos'};renderLancamentos()">✕ Limpar</button>`
+    : '';
+  document.getElementById('lanc-filtros').innerHTML = btnsPessoa + '<span style="width:1px;background:var(--border);display:inline-block;height:20px;margin:0 4px;vertical-align:middle"></span>' + btnsTipo + btnLimpar;
+
+  // Aplica filtros
+  let lancs = lancsAll;
+  if (_lancFiltro.pessoa !== 'Todos') lancs = lancs.filter(r => (r['QUEM PAGOU']||'').toLowerCase() === _lancFiltro.pessoa.toLowerCase());
+  if (_lancFiltro.tipo   !== 'Todos') lancs = lancs.filter(r => (r['TIPO']||'') === _lancFiltro.tipo);
+
+  if(!lancs.length){
+    document.getElementById('lanc-content').innerHTML=vazioHTML('Nenhum lançamento','Sem registros para este filtro.');
+    return;
+  }
+
+  // Totalizador rápido
+  const totalFiltro = lancs.reduce((s,r) => s + (r['TIPO']==='Receita' ? valEfetivo(r) : -valEfetivo(r)), 0);
+  const totalLabel  = `<div style="font-size:12px;color:var(--text-muted);text-align:right;margin-bottom:8px">${lancs.length} registro(s) · Saldo filtro: <strong style="color:${totalFiltro>=0?'var(--green)':'var(--red)'}">${fmt(Math.abs(totalFiltro))}</strong></div>`;
+
   const rows=lancs.map(r=>{
     const quem=r['QUEM PAGOU']||'',tipo=r['TIPO']||'',val=valEfetivo(r);
     const qcls=quem.toLowerCase()==='rapha'?'rapha':'fernanda';
-    const rcls=r['RESPONSÁVEL']==='Compartilhado'?'comp':qcls;
     const parcBadge=r._parcAtual?`<span class="badge parc">${r._parcAtual}/${r._parcTotal}</span>`:'';
     return`<tr>
       <td>${r['DATA']||''}</td>
@@ -1867,13 +1907,12 @@ function renderLancamentos(){
       <td>${r['CATEGORIA']||''}</td>
       <td>${r['ESTABELECIMENTO']||'—'}</td>
       <td><span class="badge ${qcls}">${quem}</span></td>
-
       <td><span class="badge ${tipo==='Receita'?'receita':'despesa'}">${tipo}</span></td>
       <td class="mono" style="text-align:right;color:${tipo==='Receita'?'var(--green)':'var(--text)'}">${fmt(val)}</td>
       <td>${r['FORMA DE PGTO']||''}</td>
     </tr>`;
   }).join('');
-  document.getElementById('lanc-content').innerHTML=`<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Data</th><th>Descrição</th><th>Categoria</th><th>Estabelecimento</th><th>Quem pagou</th><th>Responsável</th><th>Tipo</th><th style="text-align:right">Valor</th><th>Forma</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  document.getElementById('lanc-content').innerHTML=totalLabel+`<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Data</th><th>Descrição</th><th>Categoria</th><th>Estabelecimento</th><th>Quem pagou</th><th>Tipo</th><th style="text-align:right">Valor</th><th>Forma</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 
 // ── PARCELAS ──

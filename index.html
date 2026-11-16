@@ -1222,8 +1222,8 @@ function renderGeral(){
 // Cache do histórico de meses fechados (carregado do Apps Script)
 let _historicoFechamentos = null;
 
-async function carregarHistorico() {
-  if (_historicoFechamentos !== null) return _historicoFechamentos;
+async function carregarHistorico(forcar=false) {
+  if (_historicoFechamentos !== null && !forcar) return _historicoFechamentos;
   try {
     const url = APPS_SCRIPT_URL + '?acao=listarHistorico&_t=' + Date.now();
     const resp = await fetch(url);
@@ -1263,8 +1263,8 @@ async function renderEquilibrio(){
   const quemDeve      = diffPag >= 0 ? p2() : p1();
   const valorAjuste   = Math.abs(diffPag) / 2;
 
-  // Carrega histórico para verificar se mês já foi fechado
-  await carregarHistorico();
+  // Carrega histórico sempre (sem cache) para refletir estado real
+  await carregarHistorico(true);
   const jafechado = mesFechado(mesSel);
 
   // Barra de status do mês
@@ -1334,8 +1334,9 @@ async function confirmarFechamento() {
   const modal       = document.getElementById('modal-fechar');
   const mes         = modal.dataset.mes;
   const valorAjuste = parseFloat(modal.dataset.valorAjuste);
-  const quemRecebe  = modal.dataset.quemRecebe;
   const quemPagou   = document.getElementById('modal-quem-pagou').value;
+  // quem recebe é sempre o outro
+  const quemRecebe  = quemPagou === p1() ? p2() : p1();
   const dataPgto    = document.getElementById('modal-data-pgto').value.split('-').reverse().join('/');
   const formaPgto   = document.getElementById('modal-forma-pgto').value;
   const obs         = document.getElementById('modal-obs').value;
@@ -1371,7 +1372,7 @@ async function confirmarFechamento() {
 async function renderHistoricoFechamentos() {
   const el = document.getElementById('eq-hist-content');
   el.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:20px">Carregando...</div>';
-  await carregarHistorico();
+  await carregarHistorico(true);
   const hist = _historicoFechamentos || [];
 
   if (!hist.length) {

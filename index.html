@@ -624,6 +624,18 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
         </div>
       </div>
 
+      <div class="card mb" style="margin-bottom:12px" id="cfg-metas-card">
+        <div class="card-title">🎯 Metas mensais por categoria</div>
+        <div style="padding:0 0 4px">
+          <div style="font-size:12px;color:var(--text-muted);margin-bottom:16px">Defina o orçamento mensal para cada categoria. Usado na aba Metas.</div>
+          <div id="cfg-metas-campos" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px"></div>
+          <button onclick="salvarMetas()" style="width:100%;padding:12px;border-radius:var(--radius-sm);border:none;background:var(--green);color:#fff;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;cursor:pointer">
+            ✓ Salvar metas
+          </button>
+          <div style="font-size:11px;color:var(--text-faint);margin-top:10px;text-align:center">Metas salvas localmente no navegador (sobrescrevem o Sheets)</div>
+        </div>
+      </div>
+
       <div class="card mb" style="margin-bottom:12px">
         <div class="card-title">🎨 Aparência</div>
         <div style="padding:0 0 16px">
@@ -966,6 +978,9 @@ async function carregarConfig() {
     console.warn('Config fallback:',e.message);
     cfg={cats:['Moradia','Streaming & Assinaturas','Alimentação','Transporte','Compras','Casa & Reformas'],cores:CORES_PADRAO,metas:{Moradia:2000,'Streaming & Assinaturas':120,Alimentação:1800,Transporte:800,Compras:1000,'Casa & Reformas':1500},pgtos:['Crédito','Débito','PIX','Dinheiro'],pgto_cores:CORES_PADRAO};
   }
+  // Aplica metas salvas localmente (têm prioridade sobre o Sheets)
+  const metasLocais = JSON.parse(localStorage.getItem('fc_metas') || 'null');
+  if (metasLocais) cfg.metas = { ...cfg.metas, ...metasLocais };
 }
 
 async function carregarLancamentos() {
@@ -2398,6 +2413,50 @@ function renderConfiguracoes() {
   atualizarPreviewPessoa(2, p2());
   const info = document.getElementById('cfg-lancamentos-info');
   if (info) info.textContent = `Total de lançamentos carregados: ${rawLanc?.length || 0}`;
+  renderMetasConfig();
+}
+
+function renderMetasConfig() {
+  const campos = document.getElementById('cfg-metas-campos');
+  if (!campos || !cfg.cats || !cfg.cats.length) return;
+
+  // Carrega metas salvas localmente (sobrescreve as do Sheets se existirem)
+  const metasSalvas = JSON.parse(localStorage.getItem('fc_metas') || 'null') || cfg.metas || {};
+
+  campos.innerHTML = cfg.cats.map((cat, i) => {
+    const cor = cfg.cores[i] || CORES_PADRAO[i % CORES_PADRAO.length];
+    const val = metasSalvas[cat] || 0;
+    return `
+      <div>
+        <label style="font-size:11px;font-weight:600;color:var(--text-faint);text-transform:uppercase;letter-spacing:.06em;display:flex;align-items:center;gap:5px;margin-bottom:5px">
+          <span style="width:8px;height:8px;border-radius:50%;background:${cor};display:inline-block;flex-shrink:0"></span>
+          ${cat}
+        </label>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span style="font-size:12px;color:var(--text-muted)">R$</span>
+          <input type="number" id="meta-${i}" value="${val}" min="0" step="50"
+            style="flex:1;padding:8px 10px;border-radius:var(--radius-sm);border:1px solid var(--border-strong);background:var(--bg);font-family:'DM Mono',monospace;font-size:13px;color:var(--text);outline:none;-moz-appearance:textfield"
+            onfocus="this.select()">
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function salvarMetas() {
+  if (!cfg.cats || !cfg.cats.length) {
+    mostrarToastRico('⚠','Sem categorias','Carregue os dados primeiro','error');
+    return;
+  }
+  const novasMetas = {};
+  cfg.cats.forEach((cat, i) => {
+    const input = document.getElementById('meta-' + i);
+    novasMetas[cat] = parseFloat(input?.value) || 0;
+  });
+  // Salva localmente
+  localStorage.setItem('fc_metas', JSON.stringify(novasMetas));
+  // Aplica imediatamente no cfg em memória
+  cfg.metas = novasMetas;
+  mostrarToastRico('✅', 'Metas salvas!', 'As metas foram atualizadas no dashboard', 'success');
 }
 
 function atualizarPreviewPessoa(num, nome) {

@@ -234,6 +234,24 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .saldo-acumulado{background:var(--amber-light);border:1px solid #fde68a;border-radius:var(--radius-sm);padding:14px 20px;display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
 .saldo-acumulado .label{font-size:13px;color:var(--amber)}
 .saldo-acumulado .valor{font-size:22px;font-weight:700;color:var(--amber)}
+
+/* FAB — LANÇAMENTO RÁPIDO */
+.fab{position:fixed;bottom:28px;right:28px;width:52px;height:52px;border-radius:50%;background:var(--rapha);color:#fff;border:none;font-size:26px;line-height:1;cursor:pointer;box-shadow:0 4px 20px rgba(37,99,235,.45);display:flex;align-items:center;justify-content:center;z-index:150;transition:transform .15s,box-shadow .15s}
+.fab:hover{transform:scale(1.08);box-shadow:0 6px 28px rgba(37,99,235,.55)}
+.fab:active{transform:scale(.96)}
+.fab-tooltip{position:fixed;bottom:34px;right:88px;background:#1e293b;color:#f1f5f9;font-size:12px;font-weight:500;padding:5px 10px;border-radius:6px;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .15s;z-index:149}
+.fab:hover ~ .fab-tooltip{opacity:1}
+
+/* MODAL LANÇAMENTO RÁPIDO */
+#modal-lancamento .modal-box{width:480px;max-width:95vw}
+.modal-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.modal-toggle-row{display:flex;gap:8px;margin-top:4px}
+.modal-toggle{flex:1;padding:8px 10px;border-radius:var(--radius-sm);border:1px solid var(--border-strong);background:var(--bg);font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text-muted);cursor:pointer;transition:all .15s;text-align:center}
+.modal-toggle.active{background:var(--rapha);color:#fff;border-color:var(--rapha);font-weight:600}
+.modal-toggle.desp.active{background:var(--red);border-color:var(--red)}
+.modal-toggle.rec.active{background:var(--green);border-color:var(--green)}
+.parcelas-row{display:none;margin-top:8px;animation:fadeIn .15s}
+.parcelas-row.show{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 </style>
 </head>
 <body>
@@ -434,6 +452,92 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
         </div>
       </div>
     </div>
+
+    <!-- MODAL LANÇAMENTO RÁPIDO -->
+    <div class="modal-overlay" id="modal-lancamento" style="display:none" onclick="if(event.target===this)fecharModalLancamento()">
+      <div class="modal-box">
+        <div class="modal-title">➕ Novo lançamento</div>
+        <div class="modal-sub">Adicionar transação diretamente ao Sheets</div>
+
+        <!-- Tipo Despesa/Receita -->
+        <div class="modal-field" style="margin-top:16px">
+          <label class="modal-label">Tipo</label>
+          <div class="modal-toggle-row">
+            <button class="modal-toggle desp active" id="rl-tipo-desp" onclick="setTipoLanc('Despesa')">💸 Despesa</button>
+            <button class="modal-toggle rec" id="rl-tipo-rec" onclick="setTipoLanc('Receita')">💰 Receita</button>
+          </div>
+        </div>
+
+        <div class="modal-grid-2">
+          <div class="modal-field">
+            <label class="modal-label">Data</label>
+            <input class="modal-input" type="date" id="rl-data">
+          </div>
+          <div class="modal-field">
+            <label class="modal-label">Valor (R$)</label>
+            <input class="modal-input" type="number" id="rl-valor" placeholder="0,00" step="0.01" min="0">
+          </div>
+        </div>
+
+        <div class="modal-field">
+          <label class="modal-label">Descrição</label>
+          <input class="modal-input" type="text" id="rl-desc" placeholder="Ex: Supermercado, Netflix…">
+        </div>
+
+        <div class="modal-grid-2">
+          <div class="modal-field">
+            <label class="modal-label">Categoria</label>
+            <select class="modal-input" id="rl-cat"></select>
+          </div>
+          <div class="modal-field">
+            <label class="modal-label">Quem pagou</label>
+            <select class="modal-input" id="rl-quem"></select>
+          </div>
+        </div>
+
+        <div class="modal-grid-2">
+          <div class="modal-field">
+            <label class="modal-label">Forma de pagamento</label>
+            <select class="modal-input" id="rl-forma"></select>
+          </div>
+          <div class="modal-field">
+            <label class="modal-label">Separado?</label>
+            <select class="modal-input" id="rl-separado">
+              <option value="Não">Não — compartilhado</option>
+              <option value="Sim">Sim — gasto pessoal</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Parcelado -->
+        <div class="modal-field">
+          <label class="modal-label">Parcelado?</label>
+          <div class="modal-toggle-row">
+            <button class="modal-toggle active" id="rl-parc-nao" onclick="setParcelado(false)">Não</button>
+            <button class="modal-toggle" id="rl-parc-sim" onclick="setParcelado(true)">Sim</button>
+          </div>
+        </div>
+        <div class="parcelas-row" id="rl-parcelas-row">
+          <div class="modal-field">
+            <label class="modal-label">Nº de parcelas</label>
+            <input class="modal-input" type="number" id="rl-nparcelas" placeholder="Ex: 3" min="2" max="48">
+          </div>
+          <div class="modal-field">
+            <label class="modal-label">Vencimento (1ª parcela)</label>
+            <input class="modal-input" type="date" id="rl-vencimento">
+          </div>
+        </div>
+
+        <div class="modal-actions" style="margin-top:20px">
+          <button class="modal-btn cancel" onclick="fecharModalLancamento()">Cancelar</button>
+          <button class="modal-btn confirm" id="rl-btn-confirmar" onclick="confirmarLancamento()">Adicionar ✓</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- FAB -->
+    <button class="fab" onclick="abrirModalLancamento()" title="Novo lançamento">+</button>
+    <div class="fab-tooltip">Novo lançamento</div>
 
     <!-- METAS -->
     <div class="tab-content" id="tab-metas">
@@ -1347,6 +1451,130 @@ function abrirModalFecharMes(mes, valorAjuste, quemDeve, quemRecebe) {
 
 function fecharModal() {
   document.getElementById('modal-fechar').style.display = 'none';
+}
+
+// ── MODAL LANÇAMENTO RÁPIDO ──
+let _tipoLanc = 'Despesa';
+let _parcelado = false;
+
+function abrirModalLancamento() {
+  // Preenche categorias
+  const selCat = document.getElementById('rl-cat');
+  selCat.innerHTML = (cfg.cats || []).map(c => `<option value="${c}">${c}</option>`).join('');
+
+  // Preenche formas de pagamento
+  const selForma = document.getElementById('rl-forma');
+  selForma.innerHTML = (cfg.pgtos || ['Crédito','Débito','Pix','Dinheiro']).map(f => `<option value="${f}">${f}</option>`).join('');
+
+  // Preenche quem pagou
+  const selQuem = document.getElementById('rl-quem');
+  selQuem.innerHTML = [p1(), p2()].map(p => `<option value="${p}">${p}</option>`).join('');
+
+  // Data padrão = hoje
+  const hoje = new Date();
+  const dataHoje = hoje.getFullYear() + '-' + String(hoje.getMonth()+1).padStart(2,'0') + '-' + String(hoje.getDate()).padStart(2,'0');
+  document.getElementById('rl-data').value = dataHoje;
+  document.getElementById('rl-vencimento').value = dataHoje;
+
+  // Reset campos
+  document.getElementById('rl-valor').value = '';
+  document.getElementById('rl-desc').value = '';
+  document.getElementById('rl-separado').value = 'Não';
+  setTipoLanc('Despesa');
+  setParcelado(false);
+
+  const btn = document.getElementById('rl-btn-confirmar');
+  btn.disabled = false;
+  btn.textContent = 'Adicionar ✓';
+
+  document.getElementById('modal-lancamento').style.display = 'flex';
+  setTimeout(() => document.getElementById('rl-desc').focus(), 100);
+}
+
+function fecharModalLancamento() {
+  document.getElementById('modal-lancamento').style.display = 'none';
+}
+
+function setTipoLanc(tipo) {
+  _tipoLanc = tipo;
+  document.getElementById('rl-tipo-desp').classList.toggle('active', tipo === 'Despesa');
+  document.getElementById('rl-tipo-rec').classList.toggle('active', tipo === 'Receita');
+}
+
+function setParcelado(sim) {
+  _parcelado = sim;
+  document.getElementById('rl-parc-nao').classList.toggle('active', !sim);
+  document.getElementById('rl-parc-sim').classList.toggle('active', sim);
+  document.getElementById('rl-parcelas-row').classList.toggle('show', sim);
+}
+
+async function confirmarLancamento() {
+  const data     = document.getElementById('rl-data').value;
+  const valor    = parseFloat(document.getElementById('rl-valor').value);
+  const desc     = document.getElementById('rl-desc').value.trim();
+  const cat      = document.getElementById('rl-cat').value;
+  const quem     = document.getElementById('rl-quem').value;
+  const forma    = document.getElementById('rl-forma').value;
+  const separado = document.getElementById('rl-separado').value;
+  const nParc    = _parcelado ? parseInt(document.getElementById('rl-nparcelas').value) || '' : '';
+  const venc     = _parcelado ? document.getElementById('rl-vencimento').value : '';
+
+  if (!data)        { mostrarToastRico('⚠','Campo obrigatório','Informe a data','error'); return; }
+  if (!valor || isNaN(valor) || valor <= 0) { mostrarToastRico('⚠','Campo obrigatório','Informe um valor válido','error'); return; }
+  if (!desc)        { mostrarToastRico('⚠','Campo obrigatório','Informe a descrição','error'); return; }
+
+  // Formata data DD/MM/AAAA
+  const dataBR = data.split('-').reverse().join('/');
+  // Mes Ref = MM/AAAA
+  const [ano, mes] = data.split('-');
+  const mesRef = mes + '/' + ano;
+  // Vencimento
+  const vencBR = venc ? venc.split('-').reverse().join('/') : '';
+
+  const btn = document.getElementById('rl-btn-confirmar');
+  btn.disabled = true;
+  btn.textContent = 'Enviando...';
+
+  try {
+    const resp = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        acao: 'inserirLancamentos',
+        lancamentos: [{
+          data:            dataBR,
+          mesRef:          mesRef,
+          quemPagou:       quem,
+          responsavel:     quem,
+          descricao:       desc,
+          categoria:       cat,
+          tipo:            _tipoLanc,
+          valorTotal:      valor,
+          formaPgto:       forma,
+          parcelado:       _parcelado ? 'Sim' : 'Não',
+          nParcelas:       nParc,
+          vencimento:      vencBR,
+          estabelecimento: desc,
+          separado:        separado
+        }]
+      })
+    });
+    const json = await resp.json();
+    if (json.ok) {
+      fecharModalLancamento();
+      mostrarToastRico('✅', 'Lançamento adicionado!', `${desc} — ${fmt(valor)}`, 'success');
+      // Recarrega dados após 1.5s para o Sheets processar
+      setTimeout(() => carregarTudo(true), 1500);
+    } else {
+      mostrarToastRico('❌', 'Erro', json.msg || 'Não foi possível salvar', 'error');
+      btn.disabled = false;
+      btn.textContent = 'Adicionar ✓';
+    }
+  } catch(e) {
+    mostrarToastRico('❌', 'Erro de conexão', 'Verifique o Apps Script', 'error');
+    btn.disabled = false;
+    btn.textContent = 'Adicionar ✓';
+  }
 }
 
 async function confirmarFechamento() {

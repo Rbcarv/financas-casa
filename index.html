@@ -1648,7 +1648,7 @@ async function confirmarFechamento() {
   const obs         = document.getElementById('modal-obs').value;
 
   try {
-    const emailBackup  = localStorage.getItem('fc_email_backup') || '';
+    const emailBackup  = ''; // o Apps Script usa o email adicional salvo nele
     const snapshotMetas = metasVigentes(mes); // trava as metas do mês ao fechar
     const resp = await fetch(APPS_SCRIPT_URL, {
       method: 'POST',
@@ -2465,20 +2465,42 @@ function renderConfiguracoes() {
   const info = document.getElementById('cfg-lancamentos-info');
   if (info) info.textContent = `Total de lançamentos carregados: ${rawLanc?.length || 0}`;
   // Carrega email de backup salvo
+  // Email adicional fica salvo no Apps Script (vale para os dois usuários e qualquer aparelho)
   const emailInput = document.getElementById('cfg-email-backup');
-  if (emailInput) emailInput.value = localStorage.getItem('fc_email_backup') || 'raphael.rbs@uol.com.br';
+  if (emailInput) {
+    emailInput.placeholder = 'Carregando...';
+    lerAppsScript('obterEmailBackup')
+      .then(r => r.json())
+      .then(j => { emailInput.value = j.email || ''; emailInput.placeholder = 'email@exemplo.com'; })
+      .catch(() => { emailInput.placeholder = 'email@exemplo.com'; });
+  }
   renderMetasConfig();
 }
 
-function salvarEmailBackup() {
+async function salvarEmailBackup() {
   const input = document.getElementById('cfg-email-backup');
   const email = (input?.value || '').trim();
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     mostrarToastRico('⚠','Email inválido','Verifique o endereço digitado','error');
     return;
   }
-  localStorage.setItem('fc_email_backup', email);
-  mostrarToastRico('✅', 'Email salvo!', email ? `Backup também enviado para ${email}` : 'Email adicional removido', 'success');
+  try {
+    // no-cors + text/plain evita o bloqueio de CORS do Apps Script
+    await fetch(APPS_SCRIPT_URL, {
+      method: 'POST', mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ acao: 'salvarEmailBackup', email })
+    });
+    // Confirma lendo de volta o que ficou salvo
+    const j = await (await lerAppsScript('obterEmailBackup')).json();
+    if ((j.email || '') === email) {
+      mostrarToastRico('✅', 'Email salvo!', email ? `Backup também enviado para ${email}` : 'Email adicional removido', 'success');
+    } else {
+      mostrarToastRico('⚠', 'Não confirmado', 'Recarregue a página e confira o email salvo', 'error');
+    }
+  } catch(e) {
+    mostrarToastRico('⚠', 'Erro ao salvar', 'Não foi possível falar com o Apps Script', 'error');
+  }
 }
 
 // Retorna chave localStorage para metas de um mês: "fc_metas_11/2026"

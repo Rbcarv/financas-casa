@@ -252,6 +252,25 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .modal-toggle.rec.active{background:var(--green);border-color:var(--green)}
 .parcelas-row{display:none;margin-top:8px;animation:fadeIn .15s}
 .parcelas-row.show{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+
+/* LEITOR DE FATURA */
+.lf-drop{border:2px dashed var(--border-strong);border-radius:var(--radius);padding:30px 20px;text-align:center;cursor:pointer;transition:all .15s;color:var(--text-muted);font-size:13px}
+.lf-drop:hover,.lf-drop.drag{border-color:var(--rapha);background:var(--rapha-light);color:var(--rapha)}
+.lf-drop b{display:block;font-size:15px;color:var(--text);margin-bottom:4px}
+.lf-in{width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-family:'DM Sans',sans-serif;font-size:12px;color:var(--text);background:var(--bg);outline:none}
+.lf-in:focus{border-color:var(--rapha);background:var(--surface)}
+.lf-in.faltando{border-color:var(--red);background:var(--red-light)}
+.lf-tbl td{padding:6px 6px 6px 0}
+.lf-tbl tr.rej td{opacity:.42}
+.lf-tbl tr.rej td:first-child{opacity:1}
+.lf-tbl .lf-orig{font-size:10px;color:var(--text-faint);margin-top:2px;font-family:'DM Mono',monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:240px}
+.lf-chk{width:18px;height:18px;cursor:pointer;accent-color:var(--green)}
+.lf-cartao{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:12px 14px;border-radius:var(--radius-sm);background:var(--bg);border:1px solid var(--border);margin-bottom:10px;font-size:13px}
+.lf-bar{position:sticky;bottom:0;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 92px 14px 18px;box-shadow:0 -4px 20px rgba(0,0,0,.06);margin-top:14px;z-index:5}
+.lf-btn{padding:9px 16px;border-radius:var(--radius-sm);border:1px solid var(--border-strong);background:var(--surface);font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text-muted);cursor:pointer}
+.lf-btn:hover{background:var(--bg);color:var(--text)}
+.lf-btn.primario{background:var(--green);border-color:var(--green);color:#fff;font-weight:600}
+.lf-btn.primario:disabled{opacity:.5;cursor:default}
 </style>
 </head>
 <body>
@@ -355,6 +374,10 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
     <div class="nav-item" onclick="setTab('pagamentos',this)">
       <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="4" width="12" height="9" rx="1.5"/><path d="M2 7h12M5 10h2"/></svg>
       Pagamentos
+    </div>
+    <div class="nav-item" onclick="setTab('leitor',this)">
+      <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 1.5h5.5L13 5v9.5H4z"/><path d="M9.5 1.5V5H13M6.5 8.5h4M6.5 11h4"/></svg>
+      Leitor de Fatura
     </div>
 
     <div class="nav-section">Sistema</div>
@@ -676,6 +699,29 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
     </div>
 
     <!-- LANÇAMENTOS -->
+    <!-- LEITOR DE FATURA -->
+    <div class="tab-content" id="tab-leitor">
+      <div class="page-header"><div><div class="page-title">Leitor de Fatura</div><div class="page-sub">Importe a fatura em PDF, revise cada gasto e envie só os aprovados para a planilha</div></div></div>
+      <div class="card mb" id="lf-upload">
+        <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px">
+          <div style="min-width:200px">
+            <label class="modal-label">Banco / cartão</label>
+            <select id="lf-banco" class="modal-input"><option value="porto">Porto Bank</option></select>
+          </div>
+          <div id="lf-senha-box" style="display:none;min-width:220px">
+            <label class="modal-label">Senha do PDF</label>
+            <div style="display:flex;gap:6px"><input id="lf-senha" type="password" class="modal-input" placeholder="Senha da fatura" onkeydown="if(event.key==='Enter')lfTentarSenha()"><button class="lf-btn" onclick="lfTentarSenha()">Abrir</button></div>
+          </div>
+        </div>
+        <div class="lf-drop" id="lf-drop" onclick="document.getElementById('lf-arquivo').click()">
+          <b>📄 Clique ou arraste o PDF da fatura aqui</b>
+          O arquivo é lido no seu navegador e não é enviado para nenhum servidor
+        </div>
+        <input type="file" id="lf-arquivo" accept="application/pdf,.pdf" style="display:none" onchange="lfArquivoEscolhido(this.files[0])">
+      </div>
+      <div id="lf-resultado"></div>
+    </div>
+
     <div class="tab-content" id="tab-lancamentos">
       <div class="page-header"><div><div class="page-title">Lançamentos</div><div class="page-sub">Registros do mês — parcelas calculadas automaticamente</div></div></div>
       <div class="filter-bar" id="lanc-filtros" style="margin-bottom:12px"></div>
@@ -1320,7 +1366,7 @@ function mesToLabel(m){const[mm]=m.split('/');return MESES_ABREV[+mm-1];}
 function renderTudo(){
   if(!mesSel)return;
   const tab=document.querySelector('.tab-content.active')?.id?.replace('tab-','');
-  ({geral:renderGeral,equilibrio:renderEquilibrio,metas:renderMetas,rapha:()=>renderPessoa('rapha'),fernanda:()=>renderPessoa('fernanda'),'compras-rapha':()=>renderCompras('rapha'),'compras-fernanda':()=>renderCompras('fernanda'),lancamentos:renderLancamentos,'parcelas-casal':()=>renderParcelas('casal'),'parcelas-rapha':()=>renderParcelas('rapha'),'parcelas-fernanda':()=>renderParcelas('fernanda'),estabelecimentos:renderEstabelecimentos,pagamentos:renderPagamentos,configuracoes:renderConfiguracoes,busca:()=>renderBusca(document.getElementById('searchInput').value)}[tab]||renderGeral)();
+  ({geral:renderGeral,equilibrio:renderEquilibrio,metas:renderMetas,rapha:()=>renderPessoa('rapha'),fernanda:()=>renderPessoa('fernanda'),'compras-rapha':()=>renderCompras('rapha'),'compras-fernanda':()=>renderCompras('fernanda'),lancamentos:renderLancamentos,'parcelas-casal':()=>renderParcelas('casal'),'parcelas-rapha':()=>renderParcelas('rapha'),'parcelas-fernanda':()=>renderParcelas('fernanda'),estabelecimentos:renderEstabelecimentos,pagamentos:renderPagamentos,configuracoes:renderConfiguracoes,leitor:renderLeitor,busca:()=>renderBusca(document.getElementById('searchInput').value)}[tab]||renderGeral)();
 }
 
 // ── GERAL ──
@@ -2611,6 +2657,451 @@ function aplicarNomesPessoas() {
   });
   // Re-renderiza a aba ativa se for de pessoa
   renderTudo();
+}
+
+// ══════════════════════════════════════════════════════
+// LEITOR DE FATURA
+// Lê o PDF no navegador (pdf.js), separa os gastos, sugere a
+// classificação pelo histórico e envia só os aprovados.
+// ══════════════════════════════════════════════════════
+const PDFJS_URL    = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+const PDFJS_WORKER = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+let _lf = null;          // fatura em revisão: { arquivo, banco, itens, ignorados, cartoes, enviado }
+let _lfBuffer = null;    // bytes do PDF (para tentar de novo com senha)
+let _pdfjs = null;
+
+const lfMoeda = v => (v < 0 ? '-' : '') + 'R$ ' + Math.abs(v).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+const lfNum   = s => parseFloat(String(s || '0').replace(/[^\d,-]/g, '').replace(',', '.')) || 0;
+const lfEsc   = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const lfSemAcento = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase();
+
+function carregarPdfJs() {
+  if (_pdfjs) return _pdfjs;
+  _pdfjs = new Promise((ok, erro) => {
+    const sc = document.createElement('script');
+    sc.src = PDFJS_URL;
+    sc.onload = () => { window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER; ok(window.pdfjsLib); };
+    sc.onerror = () => { _pdfjs = null; erro(new Error('Não foi possível carregar o leitor de PDF')); };
+    document.head.appendChild(sc);
+  });
+  return _pdfjs;
+}
+
+// Arrastar e soltar
+function lfAtivarArrastar() {
+  const drop = document.getElementById('lf-drop');
+  if (!drop) return;
+  ['dragenter','dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('drag'); }));
+  ['dragleave','drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('drag'); }));
+  drop.addEventListener('drop', e => { const f = e.dataTransfer.files[0]; if (f) lfArquivoEscolhido(f); });
+}
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', lfAtivarArrastar);
+else lfAtivarArrastar();
+
+async function lfArquivoEscolhido(arquivo) {
+  if (!arquivo) return;
+  document.getElementById('lf-arquivo').value = '';
+  if (!/\.pdf$/i.test(arquivo.name) && arquivo.type !== 'application/pdf') {
+    mostrarToastRico('⚠', 'Arquivo inválido', 'Escolha um arquivo PDF', 'error'); return;
+  }
+  _lfBuffer = await arquivo.arrayBuffer();
+  _lfBuffer.nome = arquivo.name;
+  document.getElementById('lf-senha').value = '';
+  lfProcessar('');
+}
+
+function lfTentarSenha() { lfProcessar(document.getElementById('lf-senha').value); }
+
+async function lfProcessar(senha) {
+  if (!_lfBuffer) return;
+  const box = document.getElementById('lf-senha-box');
+  const res = document.getElementById('lf-resultado');
+  res.innerHTML = '<div class="card"><div class="loading"><div class="spinner"></div>Lendo a fatura...</div></div>';
+  try {
+    const pdfjsLib = await carregarPdfJs();
+    // pdf.js consome o buffer, por isso passa uma cópia
+    const doc = await pdfjsLib.getDocument({ data: new Uint8Array(_lfBuffer.slice(0)), password: senha || undefined }).promise;
+    box.style.display = 'none';
+    const linhas = await lfExtrairLinhas(doc);
+    const banco  = document.getElementById('lf-banco').value;
+    const lido   = LEITORES_FATURA[banco].ler(linhas);
+    if (!lido.itens.length) {
+      res.innerHTML = `<div class="card" style="text-align:center;padding:36px;color:var(--text-muted)">Nenhum lançamento encontrado.<br><small>Confira se o banco escolhido é o desta fatura (${lfEsc(LEITORES_FATURA[banco].nome)}).</small></div>`;
+      return;
+    }
+    _lf = lfPrepararRevisao(lido, banco, _lfBuffer.nome);
+    renderLeitor();
+  } catch (e) {
+    if (e && e.name === 'PasswordException') {
+      box.style.display = 'block';
+      res.innerHTML = `<div class="card" style="padding:20px;color:var(--text-muted);font-size:13px">🔒 Este PDF tem senha. ${senha ? '<b style="color:var(--red)">Senha incorreta, tente de novo.</b>' : 'Digite a senha da fatura acima.'}</div>`;
+      document.getElementById('lf-senha').focus();
+      return;
+    }
+    console.error(e);
+    res.innerHTML = `<div class="card" style="padding:20px;color:var(--red);font-size:13px">Não foi possível ler o PDF: ${lfEsc(e.message || e)}</div>`;
+  }
+}
+
+/** Remonta as linhas do PDF agrupando os textos pela altura; colunas separadas por " | " */
+async function lfExtrairLinhas(doc) {
+  const todas = [];
+  for (let p = 1; p <= doc.numPages; p++) {
+    const page = await doc.getPage(p);
+    const tc = await page.getTextContent();
+    const linhas = [];
+    for (const it of tc.items) {
+      if (!it.str || !it.str.trim()) continue;
+      const x = it.transform[4], y = it.transform[5];
+      let l = linhas.find(l => Math.abs(l.y - y) < 3);
+      if (!l) { l = { y, itens: [] }; linhas.push(l); }
+      l.itens.push({ x, s: it.str.trim() });
+    }
+    linhas.sort((a, b) => b.y - a.y)
+      .forEach(l => todas.push(l.itens.sort((a, b) => a.x - b.x).map(i => i.s).join(' | ')));
+  }
+  return todas;
+}
+
+// ── Leitores por banco ───────────────────────────────
+// Cada leitor recebe as linhas do PDF e devolve:
+// { itens: [{dia, mes, descricao, valor, cartao}], cartoes: {final: {titular, subtotal}}, limite: Date|null }
+const LEITORES_FATURA = {
+  porto: {
+    nome: 'Porto Bank',
+    ler(linhas) {
+      const itens = [], cartoes = {};
+      let cartao = '', emDetalhe = false, limite = null;
+      for (const l of linhas) {
+        const t = l.replace(/ \| /g, '  ').trim();
+        const cols = l.split(' | ').map(c => c.trim());
+        const prox = t.match(/fechamento da pr[oó]xima fatura\s+(\d{2})\/(\d{2})\/(\d{4})/i);
+        if (prox) { limite = new Date(+prox[3], +prox[2] - 1, +prox[1]); continue; }
+        if (/^Lan[cç]amentos: compras/i.test(t)) { emDetalhe = true; continue; }
+        if (/^(Contesta|Detalhamento geral)/i.test(t)) { emDetalhe = false; continue; }
+        const sub = t.match(/^Lan[cç]amentos no cart[aã]o \(final \*(\d+)\)\s+(-?[\d.]+,\d{2})/i);
+        if (sub) { (cartoes[sub[1]] ||= { titular: '' }).subtotal = lfNum(sub[2]); continue; }
+        const tit = t.match(/^(.+?)\s*\(final \*(\d+)\)$/);
+        if (tit) { cartao = tit[2]; (cartoes[cartao] ||= {}).titular = tit[1].trim(); continue; }
+        if (!emDetalhe) continue;
+        // Linha de lançamento: DD/MM | descrição | valor
+        let m = null;
+        if (cols.length >= 3 && /^\d{2}\/\d{2}$/.test(cols[0]) && /^-?[\d.]+,\d{2}$/.test(cols[cols.length - 1])) {
+          m = [cols[0], cols.slice(1, -1).join(' '), cols[cols.length - 1]];
+        } else {
+          const r = t.match(/^(\d{2}\/\d{2})\s+(.+?)\s+(-?[\d.]+,\d{2})$/);
+          if (r) m = [r[1], r[2], r[3]];
+        }
+        if (!m) continue;
+        const [dia, mes] = m[0].split('/').map(Number);
+        itens.push({ dia, mes, descricao: m[1].replace(/\s+/g, ' ').trim(), valor: lfNum(m[2]), cartao });
+      }
+      return { itens, cartoes, limite };
+    }
+  }
+};
+
+// ── Sugestões e regras ───────────────────────────────
+// Nome "bonito" do estabelecimento a partir do texto da fatura
+const LF_ESTAB = [
+  [/MERCADO ?LIVRE|MERCADOLI|MELIMAIS|MP \*?MELI/, 'Mercado Livre'],
+  [/ALIEXPRESS/, 'AliExpress'],
+  [/AMAZON/, 'Amazon'],
+  [/SHOPEE/, 'Shopee'],
+  [/DROGASIL/, 'Drogasil'],
+  [/DROGA ?RAIA|RAIA ?DROGASIL/, 'Droga Raia'],
+  [/TAG PORTO|PORTO BANK SVG/, 'Tag Porto Seguro'],
+  [/PORTO SEGURO/, 'Porto Seguro'],
+  [/CARTAO PROTEGIDO/, 'Porto Bank', 'Cartão Protegido'],   // 3º item: descrição própria
+  [/IFOOD/, 'iFood'],
+  [/UBER/, 'Uber'],
+  [/99 ?APP|99POP|99 TAXI/, '99'],
+  [/NETFLIX/, 'Netflix'],
+  [/SPOTIFY/, 'Spotify'],
+  [/PRODUTOSUOL|\bUOL\b/, 'UOL'],
+];
+
+const LF_PALAVRAS_IGNORAR = new Set(['BR','B','SAO','PAULO','SP','RJ','DE','DO','DA','MP','DL','PG','PAG','EC','LTDA','COM']);
+
+/** Palavras-chave de um texto (sem números, acentos e cidades comuns) */
+function lfChaves(texto) {
+  return lfSemAcento(texto).replace(/[^A-Z ]/g, ' ').split(/\s+/)
+    .filter(w => w.length > 2 && !LF_PALAVRAS_IGNORAR.has(w));
+}
+const lfCompacto = s => lfSemAcento(s).replace(/[^A-Z]/g, '');
+const lfTitulo = s => String(s || '').toLowerCase().replace(/(^|\s)\S/g, c => c.toUpperCase());
+
+/** Índice do histórico: estabelecimento/descrição → categoria e estabelecimento mais usados */
+function lfIndiceHistorico() {
+  const porChave = {};
+  const somar = (chave, cat, estab) => {
+    if (!chave) return;
+    const reg = porChave[chave] ||= { cats: {}, estabs: {} };
+    if (cat) reg.cats[cat] = (reg.cats[cat] || 0) + 1;
+    if (estab) reg.estabs[estab] = (reg.estabs[estab] || 0) + 1;
+  };
+  (rawLanc || []).forEach(r => {
+    if ((r['TIPO'] || 'Despesa') !== 'Despesa') return;
+    const cat = (r['CATEGORIA'] || '').trim(), estab = (r['ESTABELECIMENTO'] || '').trim();
+    const kd = lfChaves(r['DESCRIÇÃO'] || r['DESCRICAO'] || '');
+    if (kd.length) { somar('D:' + kd.slice(0, 2).join(' '), cat, estab); somar('D:' + kd[0], cat, estab); }
+    if (estab) somar('E:' + lfCompacto(estab), cat, estab);
+  });
+  const maisUsado = obj => Object.entries(obj || {}).sort((a, b) => b[1] - a[1])[0]?.[0] || '';
+  return {
+    buscar(descricao, estabSugerido) {
+      const kd = lfChaves(descricao);
+      const tentativas = [];
+      if (estabSugerido) tentativas.push('E:' + lfCompacto(estabSugerido));
+      if (kd.length > 1) tentativas.push('D:' + kd.slice(0, 2).join(' '));
+      if (kd.length && kd[0].length >= 5) { tentativas.push('D:' + kd[0]); tentativas.push('E:' + kd[0]); }
+      for (const k of tentativas) {
+        const reg = porChave[k];
+        if (reg && (Object.keys(reg.cats).length || Object.keys(reg.estabs).length))
+          return { categoria: maisUsado(reg.cats), estabelecimento: maisUsado(reg.estabs) };
+      }
+      return null;
+    }
+  };
+}
+
+/** Quem é o titular do cartão: compara o primeiro nome com os nomes das pessoas */
+function lfPessoaDoTitular(final, titular) {
+  const salvos = JSON.parse(localStorage.getItem('fc_cartoes') || '{}');
+  if (salvos[final] && [p1(), p2()].includes(salvos[final])) return salvos[final];
+  const nome = lfSemAcento(titular).split(' ')[0] || '';
+  for (const p of [p1(), p2()]) {
+    const pn = lfSemAcento(p);
+    if (nome && pn && (nome.startsWith(pn) || pn.startsWith(nome))) return p;
+  }
+  return p1();
+}
+
+function lfPrepararRevisao(lido, banco, arquivo) {
+  // Ano: datas depois do próximo fechamento são do ano anterior
+  const limite = lido.limite || new Date(Date.now() + 31 * 86400000);
+  const historico = lfIndiceHistorico();
+  const cartoes = {};
+  Object.entries(lido.cartoes).forEach(([f, c]) => {
+    cartoes[f] = { titular: c.titular || '', subtotal: c.subtotal ?? null, pessoa: lfPessoaDoTitular(f, c.titular || '') };
+  });
+
+  const itens = [], ignorados = [];
+  lido.itens.forEach(it => {
+    let ano = limite.getFullYear();
+    if (new Date(ano, it.mes - 1, it.dia) > limite) ano--;
+    const data = `${String(it.dia).padStart(2,'0')}/${String(it.mes).padStart(2,'0')}/${ano}`;
+    const dataObj = new Date(ano, it.mes - 1, it.dia);
+
+    if (it.valor < 0 && /PAGAMENTO/i.test(it.descricao)) {
+      ignorados.push({ ...it, data, motivo: 'Pagamento da fatura' });
+      return;
+    }
+
+    // Parcela "06/06" no texto
+    let parcAtual = 0, parcTotal = 0;
+    const pm = [...it.descricao.matchAll(/(?:^|\s)(\d{1,2})\/(\d{1,2})(?=\s|$)/g)].pop();
+    if (pm && +pm[1] >= 1 && +pm[1] <= +pm[2] && +pm[2] > 1) { parcAtual = +pm[1]; parcTotal = +pm[2]; }
+
+    // Descrição limpa: sem a parcela e sem o " BR" do fim
+    let descricao = it.descricao.replace(pm ? pm[0] : '', ' ').replace(/\bPARC(ELA)?\b\.?/gi, ' ')
+      .replace(/\s+B[RZ]?$/i, '').replace(/\s+/g, ' ').trim();
+    const regra = LF_ESTAB.find(([re]) => re.test(lfSemAcento(it.descricao))) || [];
+    const estabDic = regra[1] || '';
+    const sug = historico.buscar(it.descricao, estabDic);
+    const estabConhecido = sug?.estabelecimento || estabDic;
+    const estabelecimento = estabConhecido || lfTitulo(descricao.split(' ').filter(w => !/^(MP|DL|EC|PG)$/i.test(w)).slice(0, 3).join(' '));
+    // Estabelecimento reconhecido: descrição vira o nome limpo (o texto original fica visível em cinza)
+    if (estabConhecido) descricao = regra[2] || estabConhecido;
+
+    const valorTotal = parcAtual === 1 ? Math.round(it.valor * parcTotal * 100) / 100 : it.valor;
+
+    // Status e aprovação padrão
+    let aprovado = true, aviso = '', tipoAviso = '';
+    const dup = lfPossivelDuplicado(dataObj, it.valor, valorTotal);
+    if (it.valor < 0)            { aprovado = false; aviso = 'Crédito/estorno';                     tipoAviso = 'warn'; }
+    else if (parcAtual > 1)      { aprovado = false; aviso = `Parcela ${parcAtual}/${parcTotal}: a compra já deve estar lançada`; tipoAviso = 'parc'; }
+    else if (dup)                { aprovado = false; aviso = `Possível duplicado: ${dup}`;           tipoAviso = 'over'; }
+    else if ((limite - dataObj) / 86400000 > 70) { aprovado = false; aviso = 'Compra antiga: pode ser parcela já lançada'; tipoAviso = 'warn'; }
+    else if (parcAtual === 1)    { aviso = `1ª de ${parcTotal} parcelas · total ${lfMoeda(valorTotal)}`; tipoAviso = 'parc'; }
+
+    itens.push({
+      aprovado, aviso, tipoAviso, data, original: it.descricao, descricao, estabelecimento,
+      categoria: sug?.categoria && cfg.cats.includes(sug.categoria) ? sug.categoria : '',
+      quemPagou: cartoes[it.cartao]?.pessoa || p1(),
+      separado: false, cartao: it.cartao, valor: it.valor,
+      parcelas: parcAtual === 1 ? parcTotal : 0, valorTotal
+    });
+  });
+
+  // Conferência: soma das compras de cada cartão x subtotal impresso na fatura
+  Object.entries(cartoes).forEach(([f, c]) => {
+    const doCartao = itens.filter(i => i.cartao === f);
+    c.qtd = doCartao.length;
+    c.soma = Math.round(doCartao.filter(i => i.valor > 0).reduce((s, i) => s + i.valor, 0) * 100) / 100;
+    c.confere = c.subtotal == null ? null : Math.abs(c.soma - c.subtotal) < 0.01;
+  });
+
+  return { arquivo, banco, itens, ignorados, cartoes, enviado: false };
+}
+
+/** Procura na planilha um lançamento com mesmo valor e data próxima (±3 dias) */
+function lfPossivelDuplicado(data, valor, valorTotal) {
+  for (const r of rawLanc || []) {
+    const v = lfNum(r['VALOR TOTAL'] || r['VALOR']);
+    if (Math.abs(v - valor) > 0.009 && Math.abs(v - valorTotal) > 0.009) continue;
+    const d = parseDateBR(r['DATA']);
+    if (d && Math.abs(d - data) <= 3 * 86400000) return `${r['DATA']} · ${r['DESCRIÇÃO'] || r['DESCRICAO'] || ''}`;
+  }
+  return '';
+}
+
+// ── Tela de revisão ──────────────────────────────────
+function renderLeitor() {
+  const res = document.getElementById('lf-resultado');
+  if (!res) return;
+  if (!_lf) { res.innerHTML = ''; return; }
+
+  if (_lf.enviado) {
+    res.innerHTML = `<div class="card" style="text-align:center;padding:40px">
+      <div style="font-size:34px;margin-bottom:8px">✅</div>
+      <div style="font-size:16px;font-weight:600;margin-bottom:4px">${_lf.enviado} lançamento(s) enviado(s) para a planilha</div>
+      <div style="font-size:13px;color:var(--text-muted);margin-bottom:18px">${lfEsc(_lf.arquivo)}</div>
+      <button class="lf-btn" onclick="_lf=null;renderLeitor()">Importar outra fatura</button></div>`;
+    return;
+  }
+
+  const pessoas = [p1(), p2()];
+  const datalist = [...new Set((rawLanc || []).map(r => (r['ESTABELECIMENTO'] || '').trim()).filter(Boolean))].sort();
+
+  const blocoCartoes = Object.entries(_lf.cartoes).map(([f, c]) => {
+    const conf = c.confere === null ? '<span class="badge comp">sem subtotal para conferir</span>'
+      : c.confere ? `<span class="badge ok">✓ confere com a fatura (${lfMoeda(c.subtotal)})</span>`
+      : `<span class="badge over">⚠ soma ${lfMoeda(c.soma)} ≠ fatura ${lfMoeda(c.subtotal)}: alguma linha pode não ter sido lida</span>`;
+    return `<div class="lf-cartao">
+      <div><b>Cartão final ${lfEsc(f)}</b> · ${lfEsc(c.titular)} · ${c.qtd} lançamento(s) &nbsp;${conf}</div>
+      <label style="display:flex;align-items:center;gap:8px;color:var(--text-muted)">Quem pagou neste cartão:
+        <select class="lf-in" style="width:auto" onchange="lfCartaoPessoa('${f}',this.value)">
+          ${pessoas.map(p => `<option ${p === c.pessoa ? 'selected' : ''}>${lfEsc(p)}</option>`).join('')}
+        </select></label></div>`;
+  }).join('');
+
+  const ign = _lf.ignorados.length
+    ? `<div style="font-size:12px;color:var(--text-muted);margin:4px 0 12px">Ignorado(s) automaticamente: ${_lf.ignorados.map(i => `${lfEsc(i.descricao)} (${lfMoeda(i.valor)})`).join(', ')}</div>` : '';
+
+  const linhas = _lf.itens.map((it, i) => `
+    <tr id="lf-row-${i}" class="${it.aprovado ? '' : 'rej'}">
+      <td style="width:28px"><input type="checkbox" class="lf-chk" ${it.aprovado ? 'checked' : ''} onchange="lfSet(${i},'aprovado',this.checked)" title="Aprovar"></td>
+      <td style="width:96px"><input class="lf-in" value="${lfEsc(it.data)}" onchange="lfSet(${i},'data',this.value)" style="font-family:'DM Mono',monospace"></td>
+      <td style="min-width:190px"><input class="lf-in" value="${lfEsc(it.descricao)}" onchange="lfSet(${i},'descricao',this.value)">
+        <div class="lf-orig" title="${lfEsc(it.original)}">${lfEsc(it.original)}</div>
+        ${it.aviso ? `<span class="badge ${it.tipoAviso}" style="margin-top:4px;font-size:10px">${lfEsc(it.aviso)}</span>` : ''}</td>
+      <td style="min-width:140px"><input class="lf-in" list="lf-estabs" value="${lfEsc(it.estabelecimento)}" onchange="lfSet(${i},'estabelecimento',this.value)"></td>
+      <td style="min-width:140px"><select class="lf-in ${it.aprovado && !it.categoria ? 'faltando' : ''}" id="lf-cat-${i}" onchange="lfSet(${i},'categoria',this.value)">
+        <option value="">Escolha...</option>${cfg.cats.map(c => `<option ${c === it.categoria ? 'selected' : ''}>${lfEsc(c)}</option>`).join('')}</select></td>
+      <td style="width:110px"><select class="lf-in" onchange="lfSet(${i},'quemPagou',this.value)">
+        ${pessoas.map(p => `<option ${p === it.quemPagou ? 'selected' : ''}>${lfEsc(p)}</option>`).join('')}</select></td>
+      <td style="width:70px;text-align:center"><input type="checkbox" class="lf-chk" ${it.separado ? 'checked' : ''} onchange="lfSet(${i},'separado',this.checked)" title="Compra separada (não entra no casal)"></td>
+      <td style="width:110px;text-align:right;font-family:'DM Mono',monospace;white-space:nowrap;color:${it.valor < 0 ? 'var(--green)' : 'var(--text)'}">${lfMoeda(it.valor)}
+        ${it.parcelas ? `<div style="font-size:10px;color:#6D28D9">total ${lfMoeda(it.valorTotal)}</div>` : ''}</td>
+    </tr>`).join('');
+
+  res.innerHTML = `
+    <div class="card mb">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+        <div><div class="card-title" style="margin-bottom:2px">Revisão: ${lfEsc(LEITORES_FATURA[_lf.banco].nome)}</div>
+          <div style="font-size:12px;color:var(--text-muted)">${lfEsc(_lf.arquivo)} · ${_lf.itens.length} lançamento(s) encontrado(s)</div></div>
+        <div style="display:flex;gap:6px"><button class="lf-btn" onclick="lfTodos(true)">Aprovar todos</button><button class="lf-btn" onclick="lfTodos(false)">Rejeitar todos</button><button class="lf-btn" onclick="_lf=null;renderLeitor()">Descartar</button></div>
+      </div>
+      ${blocoCartoes}${ign}
+      <div style="overflow-x:auto">
+        <table class="tbl lf-tbl">
+          <thead><tr><th></th><th>Data</th><th>Descrição</th><th>Estabelecimento</th><th>Categoria</th><th>Quem pagou</th><th style="text-align:center">Separado</th><th style="text-align:right">Valor</th></tr></thead>
+          <tbody>${linhas}</tbody>
+        </table>
+      </div>
+      <datalist id="lf-estabs">${datalist.map(e => `<option value="${lfEsc(e)}">`).join('')}</datalist>
+    </div>
+    <div class="lf-bar">
+      <div id="lf-resumo" style="font-size:13px;color:var(--text-muted)"></div>
+      <button class="lf-btn primario" id="lf-enviar" onclick="lfEnviar()">Enviar aprovados</button>
+    </div>`;
+  lfAtualizarResumo();
+}
+
+function lfSet(i, campo, valor) {
+  const it = _lf.itens[i];
+  it[campo] = typeof valor === 'string' ? valor.trim() : valor;
+  if (campo === 'aprovado') document.getElementById('lf-row-' + i).classList.toggle('rej', !valor);
+  if (campo === 'aprovado' || campo === 'categoria')
+    document.getElementById('lf-cat-' + i).classList.toggle('faltando', it.aprovado && !it.categoria);
+  lfAtualizarResumo();
+}
+
+function lfTodos(aprovar) {
+  _lf.itens.forEach(it => { it.aprovado = aprovar; });
+  renderLeitor();
+}
+
+function lfCartaoPessoa(final, pessoa) {
+  _lf.cartoes[final].pessoa = pessoa;
+  _lf.itens.filter(it => it.cartao === final).forEach(it => { it.quemPagou = pessoa; });
+  const salvos = JSON.parse(localStorage.getItem('fc_cartoes') || '{}');
+  salvos[final] = pessoa;
+  localStorage.setItem('fc_cartoes', JSON.stringify(salvos));
+  renderLeitor();
+}
+
+function lfAtualizarResumo() {
+  const ap = _lf.itens.filter(it => it.aprovado);
+  const semCat = ap.filter(it => !it.categoria).length;
+  const total = ap.reduce((s, it) => s + it.valorTotal, 0);
+  document.getElementById('lf-resumo').innerHTML =
+    `<b style="color:var(--text)">${ap.length}</b> de ${_lf.itens.length} aprovado(s) · <b style="color:var(--text)">${lfMoeda(total)}</b>` +
+    (semCat ? ` · <span style="color:var(--red)">${semCat} sem categoria</span>` : '');
+  const btn = document.getElementById('lf-enviar');
+  btn.disabled = !ap.length;
+  btn.textContent = ap.length ? `Enviar ${ap.length} aprovado(s)` : 'Nenhum aprovado';
+}
+
+async function lfEnviar() {
+  const ap = _lf.itens.filter(it => it.aprovado);
+  if (!ap.length) return;
+  if (ap.some(it => !it.categoria)) {
+    mostrarToastRico('⚠', 'Falta categoria', 'Escolha a categoria de todos os lançamentos aprovados', 'error');
+    document.querySelector('.lf-in.faltando')?.focus();
+    return;
+  }
+  const dataInvalida = ap.find(it => !/^\d{2}\/\d{2}\/\d{4}$/.test(it.data) || !parseDateBR(it.data));
+  if (dataInvalida) {
+    mostrarToastRico('⚠', 'Data inválida', `Use o formato DD/MM/AAAA: "${dataInvalida.data}"`, 'error');
+    return;
+  }
+
+  const btn = document.getElementById('lf-enviar');
+  btn.disabled = true; btn.textContent = 'Enviando...';
+  const lancamentos = ap.map(it => ({
+    data: it.data, mesRef: '', quemPagou: it.quemPagou, responsavel: '',
+    descricao: it.descricao, categoria: it.categoria, tipo: 'Despesa',
+    valorTotal: it.valorTotal, formaPgto: 'Crédito',
+    parcelado: it.parcelas > 1 ? 'Sim' : 'Não', nParcelas: it.parcelas > 1 ? it.parcelas : '',
+    vencimento: '', estabelecimento: it.estabelecimento, separado: it.separado ? 'Sim' : 'Não'
+  }));
+  try {
+    // text/plain + no-cors: mesmo formato do lançamento rápido (evita bloqueio de CORS)
+    await fetch(APPS_SCRIPT_URL, {
+      method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ acao: 'inserirLancamentos', lancamentos })
+    });
+    _lf.enviado = lancamentos.length;
+    renderLeitor();
+    mostrarToastRico('✅', 'Fatura importada!', `${lancamentos.length} lançamento(s) · atualizando...`, 'success');
+    setTimeout(() => carregarTudo(true), 2500);
+  } catch (e) {
+    btn.disabled = false; lfAtualizarResumo();
+    mostrarToastRico('❌', 'Erro ao enviar', 'Não foi possível falar com o Apps Script', 'error');
+  }
 }
 
 // ══════════════════════════════════════════════════════

@@ -354,6 +354,8 @@ const PROXIES = [
   u=>`https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
   u=>`https://corsproxy.io/?${encodeURIComponent(u)}`,
 ];
+// Apps Script URL — leitura em tempo real (sem cache)
+const APPS_SCRIPT_URL = (()=>{const _a=['dWdnY2Y6Ly9mcGV2Y2cudGJidHlyLnBiei96bnA=','ZWJmL2YvTlhzbHBvbUlXMnFXTXdGM2xhdEp2cjU=','M2lZbU1LT3doX0hNN3RVWmdmNk83WmZXQmZWZEY=','d3Jrd2dFX3ZraTRfYWxsaDJhWlRsTi9ya3Jw'];const r=s=>s.replace(/[A-Za-z]/g,c=>String.fromCharCode((c<='Z'?90:122)>=(c=c.charCodeAt(0)+13)?c:c-26));return r(atob(_a.join('')));})();
 const CORES_PADRAO = ['#2563EB','#7C3AED','#059669','#D97706','#DB2777','#0891B2','#0F766E','#9333EA','#EA580C','#65A30D','#1D4ED8','#BE185D'];
 const MESES_NOMES  = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 const MESES_ABREV  = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
@@ -485,7 +487,14 @@ function mesKeyDeData(str) {
 // ══════════════════════════════════════════════════════
 async function carregarConfig() {
   try {
-    const rows=parseCSV(await fetchCSV(URL_CONFIG));
+    // Tenta Apps Script primeiro (tempo real), fallback para CSV público
+    let rows;
+    try {
+      const r = await fetch(APPS_SCRIPT_URL + '?acao=listarConfig', {cache:'no-store'});
+      if (r.ok) { const t = await r.text(); rows = parseCSV(t); }
+    } catch(_) {}
+    if (!rows) rows = parseCSV(await fetchCSV(URL_CONFIG));
+
     const cats=[],cores=[],metas={},pgtos=[],pgto_cores=[];
     rows.forEach(r=>{
       if(r['CATEGORIAS']&&r['CATEGORIAS']!=='CATEGORIAS'){cats.push(r['CATEGORIAS']);cores.push(r['CORES']?.startsWith('#')?r['CORES']:CORES_PADRAO[cats.length-1]||'#888');}
@@ -500,16 +509,35 @@ async function carregarConfig() {
 }
 
 async function carregarLancamentos() {
-  const text=await fetchCSV(URL_LANC);
-  rawLanc=parseCSV(text).filter(r=>r['DATA']?.trim());
-  lancExpand=expandirParcelas(rawLanc);
+  // Usa Apps Script para leitura em tempo real (sem cache do Google Sheets)
+  try {
+    const r = await fetch(APPS_SCRIPT_URL + '?acao=listarLancamentos', {cache:'no-store'});
+    if (r.ok) {
+      const json = await r.json();
+      if (json.ok && json.cabecalho && json.linhas) {
+        // Converte array de arrays para array de objetos usando o cabeçalho
+        rawLanc = json.linhas.map(linha => {
+          const obj = {};
+          json.cabecalho.forEach((col, i) => { obj[col] = linha[i] || ''; });
+          return obj;
+        }).filter(r => r['DATA']?.trim());
+        lancExpand = expandirParcelas(rawLanc);
+        const set = new Set();
+        lancExpand.forEach(r => { const k=r._mesKey||mesKeyDeData(r['DATA']); if(k)set.add(k); });
+        mesesDisp = [...set].sort((a,b)=>{const[ma,ya]=a.split('/'),[mb,yb]=b.split('/');return new Date(ya,ma-1)-new Date(yb,mb-1);});
+        popularSelectMes();
+        return;
+      }
+    }
+  } catch(e) { console.warn('Apps Script fallback para CSV:', e.message); }
 
-  const set=new Set();
-  lancExpand.forEach(r=>{
-    const k=r._mesKey||mesKeyDeData(r['DATA']);
-    if(k)set.add(k);
-  });
-  mesesDisp=[...set].sort((a,b)=>{const[ma,ya]=a.split('/'),[mb,yb]=b.split('/');return new Date(ya,ma-1)-new Date(yb,mb-1);});
+  // Fallback: CSV público
+  const text = await fetchCSV(URL_LANC);
+  rawLanc = parseCSV(text).filter(r=>r['DATA']?.trim());
+  lancExpand = expandirParcelas(rawLanc);
+  const set = new Set();
+  lancExpand.forEach(r=>{ const k=r._mesKey||mesKeyDeData(r['DATA']); if(k)set.add(k); });
+  mesesDisp = [...set].sort((a,b)=>{const[ma,ya]=a.split('/'),[mb,yb]=b.split('/');return new Date(ya,ma-1)-new Date(yb,mb-1);});
   popularSelectMes();
 }
 

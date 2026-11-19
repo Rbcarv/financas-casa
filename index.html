@@ -271,6 +271,10 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .lf-btn:hover{background:var(--bg);color:var(--text)}
 .lf-btn.primario{background:var(--green);border-color:var(--green);color:#fff;font-weight:600}
 .lf-btn.primario:disabled{opacity:.5;cursor:default}
+/* VERIFICADOR DE DUPLICADOS */
+.dup-badge{margin-left:auto;background:var(--red);color:#fff;font-size:10px;font-weight:700;border-radius:99px;padding:1px 7px;line-height:16px}
+.dup-grupo{border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:10px}
+.dup-grupo .tbl td{padding:6px 8px 6px 0;font-size:12px}
 </style>
 </head>
 <body>
@@ -350,6 +354,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
     <div class="nav-item" onclick="setTab('lancamentos',this)">
       <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12M2 8h8M2 12h10"/></svg>
       Lançamentos
+      <span class="dup-badge" id="dup-badge" style="display:none" title="Possíveis duplicados na planilha"></span>
     </div>
     <div class="nav-item" onclick="setTab('parcelas-casal',this)">
       <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="3" width="14" height="10" rx="1.5"/><path d="M1 6h14"/></svg>
@@ -724,6 +729,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 
     <div class="tab-content" id="tab-lancamentos">
       <div class="page-header"><div><div class="page-title">Lançamentos</div><div class="page-sub">Registros do mês — parcelas calculadas automaticamente</div></div></div>
+      <div id="dup-content"></div>
       <div class="filter-bar" id="lanc-filtros" style="margin-bottom:12px"></div>
       <div class="card"><div id="lanc-content"></div></div>
     </div>
@@ -1067,9 +1073,10 @@ async function carregarLancamentos() {
     const r = await lerAppsScript('listarLancamentos');
     const json = await r.json();
     if (json.ok && Array.isArray(json.cabecalho) && Array.isArray(json.linhas)) {
-      linhasObj = json.linhas.map(linha => {
+      linhasObj = json.linhas.map((linha, n) => {
         const o = {};
         json.cabecalho.forEach((col, i) => { o[col] = linha[i] ?? ''; });
+        if (json.numeros) o._linha = json.numeros[n];   // nº da linha na planilha
         return o;
       });
     }
@@ -1083,6 +1090,8 @@ async function carregarLancamentos() {
     return temData || temMesRef || temValor;
   });
   lancExpand=expandirParcelas(rawLanc);
+  _duplicados = detectarDuplicados();
+  atualizarBadgeDuplicados();
 
   const set=new Set();
   lancExpand.forEach(r=>{
@@ -1974,6 +1983,7 @@ function setLancFiltro(campo, valor) {
 }
 
 function renderLancamentos(){
+  renderDuplicados();
   const lancsAll = lancDoMes(mesSel);
 
   // Monta barra de filtros
@@ -3193,6 +3203,116 @@ async function lfEnviar() {
     btn.disabled = false; lfAtualizarResumo();
     mostrarToastRico('❌', 'Erro ao enviar', 'Não foi possível falar com o Apps Script', 'error');
   }
+}
+
+// ══════════════════════════════════════════════════════
+// VERIFICADOR DE DUPLICADOS
+// Procura na planilha inteira lançamentos repetidos.
+//  - Idêntico: mesmo valor, data, descrição e pessoa
+//  - Provável: mesmo valor e mesmo estabelecimento/descrição, até 3 dias de diferença
+// Grupos marcados como "Não é duplicado" ficam salvos neste navegador.
+// ══════════════════════════════════════════════════════
+let _duplicados = [];
+let _dupAberto = false;
+const DUP_DIAS = 3;
+
+function dupNorm(s) {
+  return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/[^A-Z]/g, '');
+}
+function dupValor(r) { return parseFloat(String(r['VALOR TOTAL'] || r['VALOR'] || '0').replace(/[^\d,-]/g, '').replace(',', '.')) || 0; }
+function dupAssinatura(r) { return [r['DATA'], dupValor(r).toFixed(2), r['DESCRIÇÃO'] || r['DESCRICAO'] || '', r['QUEM PAGOU'] || ''].join('|'); }
+function dupIgnorados() { try { return JSON.parse(localStorage.getItem('fc_dup_ok') || '[]'); } catch (_) { return []; } }
+function dupChaveGrupo(g) { return g.itens.map(dupAssinatura).sort().join('§'); }
+
+function detectarDuplicados() {
+  const lista = (rawLanc || []).map(r => ({
+    r, valor: dupValor(r), data: parseDateBR(r['DATA']),
+    desc: dupNorm(r['DESCRIÇÃO'] || r['DESCRICAO']), estab: dupNorm(r['ESTABELECIMENTO'])
+  })).filter(x => x.valor > 0 && x.data);
+
+  // Agrupa por valor; dentro do mesmo valor, junta quem tem o mesmo lugar e data próxima
+  const porValor = {};
+  lista.forEach(x => (porValor[x.valor.toFixed(2)] ||= []).push(x));
+
+  const grupos = [];
+  Object.values(porValor).forEach(arr => {
+    if (arr.length < 2) return;
+    const pai = arr.map((_, i) => i);
+    const raiz = i => pai[i] === i ? i : (pai[i] = raiz(pai[i]));
+    for (let a = 0; a < arr.length; a++) for (let b = a + 1; b < arr.length; b++) {
+      const x = arr[a], y = arr[b];
+      const mesmoLugar = (x.estab && x.estab === y.estab) || (x.desc && x.desc === y.desc);
+      if (mesmoLugar && Math.abs(x.data - y.data) <= DUP_DIAS * 86400000) pai[raiz(a)] = raiz(b);
+    }
+    const porRaiz = {};
+    arr.forEach((x, i) => (porRaiz[raiz(i)] ||= []).push(x));
+    Object.values(porRaiz).filter(g => g.length > 1).forEach(g => {
+      const identico = g.every(x => x.r['DATA'] === g[0].r['DATA'] && x.desc === g[0].desc &&
+        (x.r['QUEM PAGOU'] || '') === (g[0].r['QUEM PAGOU'] || ''));
+      grupos.push({ identico, valor: g[0].valor, itens: g.map(x => x.r).sort((p, q) => (p._linha || 0) - (q._linha || 0)) });
+    });
+  });
+
+  const ignorados = new Set(dupIgnorados());
+  return grupos
+    .filter(g => !ignorados.has(dupChaveGrupo(g)))
+    .sort((a, b) => (b.identico - a.identico) || (parseDateBR(b.itens[0]['DATA']) - parseDateBR(a.itens[0]['DATA'])));
+}
+
+function atualizarBadgeDuplicados() {
+  const el = document.getElementById('dup-badge');
+  if (!el) return;
+  el.textContent = _duplicados.length;
+  el.style.display = _duplicados.length ? 'inline-block' : 'none';
+}
+
+function renderDuplicados() {
+  const el = document.getElementById('dup-content');
+  if (!el) return;
+  if (!_duplicados.length) { el.innerHTML = ''; return; }
+
+  const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const moeda = v => 'R$ ' + v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const ident = _duplicados.filter(g => g.identico).length;
+
+  const grupos = _duplicados.map((g, gi) => `
+    <div class="dup-grupo">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px">
+        <div style="font-size:13px"><span class="badge ${g.identico ? 'over' : 'warn'}">${g.identico ? 'Idêntico' : 'Provável'}</span>
+          &nbsp;<b>${moeda(g.valor)}</b> · ${g.itens.length} lançamentos</div>
+        <button class="lf-btn" style="padding:5px 12px;font-size:12px" onclick="dupNaoEDuplicado(${gi})">Não é duplicado</button>
+      </div>
+      <div style="overflow-x:auto"><table class="tbl"><tbody>${g.itens.map(r => `<tr>
+        <td style="width:80px;font-family:'DM Mono',monospace;color:var(--text-muted);white-space:nowrap">${r._linha ? 'Linha ' + r._linha : '—'}</td>
+        <td style="width:90px;font-family:'DM Mono',monospace">${esc(r['DATA'])}</td>
+        <td>${esc(r['DESCRIÇÃO'] || r['DESCRICAO'])}</td>
+        <td style="color:var(--text-muted)">${esc(r['ESTABELECIMENTO'])}</td>
+        <td style="width:90px">${esc(r['QUEM PAGOU'])}</td>
+        <td style="width:110px;color:var(--text-muted)">${esc(r['CATEGORIA'])}</td>
+      </tr>`).join('')}</tbody></table></div>
+    </div>`).join('');
+
+  el.innerHTML = `
+    <div class="card mb" style="border-color:#fecaca;background:#fffafa">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+        <div style="font-size:14px">⚠️ <b>${_duplicados.length} possível(is) duplicado(s)</b> na planilha
+          <span style="color:var(--text-muted);font-size:12px">${ident ? `· ${ident} idêntico(s)` : ''} · todos os meses</span></div>
+        <button class="lf-btn" onclick="_dupAberto=!_dupAberto;renderDuplicados()">${_dupAberto ? 'Ocultar' : 'Ver detalhes'}</button>
+      </div>
+      ${_dupAberto ? `<div style="font-size:12px;color:var(--text-muted);margin:10px 0 12px">Confira na planilha pelo número da linha e apague o que estiver repetido. Depois clique em "↻ Atualizar agora".</div>${grupos}` : ''}
+    </div>`;
+}
+
+function dupNaoEDuplicado(gi) {
+  const g = _duplicados[gi];
+  if (!g) return;
+  const lista = dupIgnorados();
+  lista.push(dupChaveGrupo(g));
+  localStorage.setItem('fc_dup_ok', JSON.stringify(lista));
+  _duplicados.splice(gi, 1);
+  atualizarBadgeDuplicados();
+  renderDuplicados();
+  mostrarToastRico('✓', 'Marcado como correto', 'Esse grupo não será mais alertado', 'success');
 }
 
 // ══════════════════════════════════════════════════════

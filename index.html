@@ -237,10 +237,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .saldo-acumulado .valor{font-size:22px;font-weight:700;color:var(--amber)}
 
 /* FAB — LANÇAMENTO RÁPIDO */
-.nav-novo{display:flex;align-items:center;justify-content:center;gap:8px;width:calc(100% - 40px);margin:8px 20px 4px;padding:9px 12px;border:none;border-radius:var(--radius-sm);background:var(--rapha);color:#fff;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 2px 10px rgba(37,99,235,.25);transition:transform .12s,box-shadow .12s}
-.nav-novo:hover{box-shadow:0 4px 16px rgba(37,99,235,.4);transform:translateY(-1px)}
-.nav-novo:active{transform:translateY(0)}
-.nav-novo-mais{font-size:17px;line-height:1;font-weight:500}
+.nav-item.nav-acao{color:var(--rapha);font-weight:500}
+.nav-item.nav-acao:hover{background:var(--rapha-light);color:var(--rapha)}
 .fab{position:fixed;bottom:28px;right:28px;width:52px;height:52px;border-radius:50%;background:var(--rapha);color:#fff;border:none;font-size:26px;line-height:1;cursor:pointer;box-shadow:0 4px 20px rgba(37,99,235,.45);display:flex;align-items:center;justify-content:center;z-index:150;transition:transform .15s,box-shadow .15s}
 .fab:hover{transform:scale(1.08);box-shadow:0 6px 28px rgba(37,99,235,.55)}
 .fab:active{transform:scale(.96)}
@@ -336,9 +334,10 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
       Metas
       <span id="badge-metas" style="display:none" class="nav-alert"></span>
     </div>
-    <button class="nav-novo" onclick="abrirModalLancamento()">
-      <span class="nav-novo-mais">+</span> Novo lançamento
-    </button>
+    <div class="nav-item nav-acao" onclick="abrirModalLancamento()">
+      <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 5v6M5 8h6"/></svg>
+      Novo lançamento
+    </div>
 
     <div class="nav-section">Pessoas</div>
     <div class="nav-item" onclick="setTab('rapha',this)">

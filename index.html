@@ -70,6 +70,10 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .md{position:relative;margin:0 20px 4px}
 .md-btn{display:flex;align-items:center;gap:8px;width:100%;padding:8px 10px;border-radius:var(--radius-sm);border:1px solid var(--border-strong);background:var(--bg);font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);cursor:pointer;text-align:left}
 .md-btn:focus-visible{outline:2px solid var(--rapha);outline-offset:1px}
+.md-btn span,.md-item span{white-space:nowrap}
+.md-btn > span:nth-child(2){overflow:hidden;text-overflow:ellipsis}
+.md-btn .md-alerta{margin-left:auto}
+.md-btn .md-alerta + .md-seta{margin-left:6px}
 .md-btn .md-seta{margin-left:auto;color:var(--text-muted);transition:transform .15s}
 .md.aberto .md-seta{transform:rotate(180deg)}
 .md-lista{display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:60;max-height:330px;overflow-y:auto;background:var(--surface);border:1px solid var(--border-strong);border-radius:var(--radius-sm);box-shadow:0 10px 30px rgba(0,0,0,.12);padding:4px}
@@ -1261,8 +1265,15 @@ const pct  = (a,b)=>b?Math.round((a/b)*100):0;
 
 function parseDateBR(s) {
   if(!s)return null;
-  const p=s.trim().split('/');
-  if(p.length===3)return new Date(+p[2],+p[1]-1,+p[0]);
+  const p=String(s).trim().split('/');
+  if(p.length===3){
+    // Ano com 2 dígitos ("10/09/26"): mesmo critério do Google Sheets → 00–29 = 2000–2029, 30–99 = 1930–1999.
+    // Sem isso o JavaScript lê "26" como 1926.
+    let ano=+p[2];
+    if(p[2].trim().length<=2) ano += ano<30 ? 2000 : 1900;
+    const d=new Date(ano,+p[1]-1,+p[0]);
+    return isNaN(d)?null:d;
+  }
   const d=new Date(s);return isNaN(d)?null:d;
 }
 function destroyChart(id){if(charts[id]){charts[id].destroy();delete charts[id];}}

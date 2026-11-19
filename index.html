@@ -1053,7 +1053,7 @@ async function carregarConfig() {
     rows.forEach(r=>{
       if(r['CATEGORIAS']&&r['CATEGORIAS']!=='CATEGORIAS'){cats.push(r['CATEGORIAS']);cores.push(r['CORES']?.startsWith('#')?r['CORES']:CORES_PADRAO[cats.length-1]||'#888');}
       if(r['FORMAS_PGTO']&&r['FORMAS_PGTO']!=='FORMAS_PGTO'){pgtos.push(r['FORMAS_PGTO']);pgto_cores.push(r['CORES_PGTO']?.startsWith('#')?r['CORES_PGTO']:CORES_PADRAO[pgtos.length-1]||'#888');}
-      if(r['METAS_CAT']&&r['METAS_CAT']!=='METAS_CAT'&&r['VALOR'])metas[r['METAS_CAT']]=parseFloat(r['VALOR'].replace(/[^\d.,]/g,'').replace(',','.'))||0;
+      if(r['METAS_CAT']&&r['METAS_CAT']!=='METAS_CAT'&&r['VALOR'])metas[r['METAS_CAT']]=valorBR(r['VALOR']);
     });
     cfg={cats,cores,metas,pgtos,pgto_cores};
   } catch(e) {
@@ -1283,7 +1283,14 @@ function lancDoMesTodos(mes) {
 }
 
 // Valor efetivo do lançamento naquele mês (já calculado na expansão)
-function valEfetivo(r){return (r._valParcela!==undefined&&r._valParcela!==null)?r._valParcela:parseFloat((r['VALOR TOTAL']||r['VALOR']||'0').replace(',','.'))||0;}
+// Converte valor em texto para número: "2.000,00" → 2000 · "138,00" → 138 · "2000" → 2000
+function valorBR(v) {
+  const s = String(v ?? '').replace(/[^\d.,-]/g, '');
+  if (s.includes(',')) return parseFloat(s.replace(/\./g, '').replace(',', '.')) || 0;
+  if (/^-?\d{1,3}(\.\d{3})+$/.test(s)) return parseFloat(s.replace(/\./g, '')) || 0;   // "2.000" = dois mil
+  return parseFloat(s) || 0;
+}
+function valEfetivo(r){return (r._valParcela!==undefined&&r._valParcela!==null)?r._valParcela:valorBR(r['VALOR TOTAL']||r['VALOR']);}
 
 // Mapeia variações de nomes de categoria para o nome canônico da config
 // Remove caracteres invisíveis e normaliza string para comparação
@@ -2038,6 +2045,8 @@ function renderLancamentos(){
 }
 
 // ── PARCELAS ──
+let _parcMostrarFinalizadas = {};   // por grupo: casal / rapha / fernanda
+
 function renderParcelas(grupo) {
   const isCasal = grupo === 'casal';
   const cor      = grupo==='rapha' ? 'var(--rapha)' : grupo==='fernanda' ? 'var(--fernanda)' : '#6D28D9';
@@ -2067,48 +2076,61 @@ function renderParcelas(grupo) {
   }
 
   const hoje=new Date(), em7=new Date(hoje); em7.setDate(em7.getDate()+7);
+  const mesHoje = hoje.getFullYear()*12 + hoje.getMonth();
 
-  const rows = parcelados.map(r => {
+  // Informações de cada parcelamento; "finalizada" = a última parcela é de um mês que já passou
+  const infos = parcelados.map(r => {
     const nParc      = parseInt(r['Nº PARCELAS']||r['PARCELAMENTO']||1)||1;
-    const valTotal   = parseFloat((r['VALOR TOTAL']||r['VALOR']||'0').replace(',','.'))||0;
-    const valParc    = valTotal / nParc;
+    const valTotal   = valorBR(r['VALOR TOTAL']||r['VALOR']);
     const mesRefDate = parseMesRef((r['MÊS REF']||r['MES REF']||'').trim());
     const dataInicio = mesRefDate || parseDateBR(r['DATA']);
     const dataFim    = dataInicio ? new Date(dataInicio.getFullYear(), dataInicio.getMonth()+nParc-1, dataInicio.getDate()) : null;
-    const mesAtualIdx= dataInicio ? Math.round((hoje-dataInicio)/(30*24*3600*1000)) : 0;
-    const parcAtual  = Math.min(Math.max(mesAtualIdx+1,1), nParc);
-    const urg        = dataFim && dataFim <= em7;
+    const finalizada = !!dataFim && (dataFim.getFullYear()*12 + dataFim.getMonth()) < mesHoje;
+    return { r, nParc, valTotal, dataInicio, dataFim, finalizada };
+  });
+  const ativas      = infos.filter(i => !i.finalizada);
+  const finalizadas = infos.filter(i => i.finalizada);
+  const mostrarFin  = !!_parcMostrarFinalizadas[grupo];
+
+  const linhaParcela = ({ r, nParc, valTotal, dataInicio, dataFim, finalizada }) => {
+    const valParc    = valTotal / nParc;
+    const mesIdx     = dataInicio ? mesHoje - (dataInicio.getFullYear()*12 + dataInicio.getMonth()) : 0;
+    const parcAtual  = Math.min(Math.max(mesIdx+1,1), nParc);
+    const urg        = !finalizada && dataFim && dataFim >= hoje && dataFim <= em7;
     const qcls       = (r['QUEM PAGOU']||'').toLowerCase()==='rapha' ? 'rapha' : 'fernanda';
     const fimStr     = dataFim ? `${String(dataFim.getDate()).padStart(2,'0')}/${String(dataFim.getMonth()+1).padStart(2,'0')}/${dataFim.getFullYear()}` : '—';
     const mesRefLabel= (r['MÊS REF']||r['MES REF']||'').trim();
-    return `<tr>
+    return `<tr style="${finalizada ? 'opacity:.55' : ''}">
       <td style="font-weight:500">${r['DESCRIÇÃO']||''}</td>
       ${isCasal ? `<td><span class="badge ${qcls}">${r['QUEM PAGOU']||''}</span></td>` : ''}
-      <td><span class="badge parc">${parcAtual}/${nParc}</span></td>
-      <td class="mono" style="color:${cor}">${fmt(valParc)}/mês</td>
+      <td>${finalizada ? '<span class="badge ok">✓ Quitada</span>' : `<span class="badge parc">${parcAtual}/${nParc}</span>`}</td>
+      <td class="mono" style="color:${finalizada ? 'var(--text-muted)' : cor}">${fmt(valParc)}/mês</td>
       <td class="mono">${fmt(valTotal)}</td>
       <td style="font-size:11px;color:var(--text-muted)">${mesRefLabel||'—'}</td>
       <td style="color:${urg?'var(--red)':'var(--text-muted)'};font-weight:${urg?600:400}">${fimStr}${urg?' ⚑':''}</td>
     </tr>`;
-  }).join('');
+  };
 
-  const totalMensal = soma(parcelados.map(r => {
-    const n = parseInt(r['Nº PARCELAS']||r['PARCELAMENTO']||1)||1;
-    return (parseFloat((r['VALOR TOTAL']||r['VALOR']||'0').replace(',','.'))||0)/n;
-  }));
+  // Total por mês considera só as parcelas ainda em andamento
+  const totalMensal = soma(ativas.map(i => i.valTotal / i.nParc));
 
   const thQuem = isCasal ? '<th>Quem</th>' : '';
+  const cabecalho = `<thead><tr><th>Descrição</th>${thQuem}<th>Progresso</th><th>Parcela/mês</th><th>Total</th><th>Mês ref.</th><th>Término</th></tr></thead>`;
+  const botaoFin = finalizadas.length
+    ? `<button class="lf-btn" style="padding:5px 12px;font-size:12px" onclick="_parcMostrarFinalizadas['${grupo}']=!_parcMostrarFinalizadas['${grupo}'];renderParcelas('${grupo}')">${mostrarFin ? 'Ocultar' : 'Mostrar'} finalizadas (${finalizadas.length})</button>` : '';
+
   document.getElementById(contentId).innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-      <span style="font-size:13px;color:var(--text-muted)">${parcelados.length} compra(s) parcelada(s)</span>
-      <span style="font-size:13px;font-weight:600;font-family:'DM Mono',monospace;color:${cor}">${fmt(totalMensal)}/mês</span>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px">
+      <span style="font-size:13px;color:var(--text-muted)">${ativas.length} parcelamento(s) em andamento${finalizadas.length ? ` · ${finalizadas.length} quitado(s)` : ''}</span>
+      <div style="display:flex;align-items:center;gap:12px">${botaoFin}
+        <span style="font-size:13px;font-weight:600;font-family:'DM Mono',monospace;color:${cor}">${fmt(totalMensal)}/mês</span></div>
     </div>
-    <div style="overflow-x:auto">
-      <table class="tbl">
-        <thead><tr><th>Descrição</th>${thQuem}<th>Progresso</th><th>Parcela/mês</th><th>Total</th><th>Mês ref.</th><th>Término</th></tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
-    </div>`;
+    ${ativas.length
+      ? `<div style="overflow-x:auto"><table class="tbl">${cabecalho}<tbody>${ativas.map(linhaParcela).join('')}</tbody></table></div>`
+      : `<div style="text-align:center;padding:26px;color:var(--text-muted);font-size:13px">🎉 Nenhum parcelamento em andamento: tudo quitado!</div>`}
+    ${mostrarFin && finalizadas.length ? `
+      <div class="card-title" style="margin:22px 0 8px">Finalizadas</div>
+      <div style="overflow-x:auto"><table class="tbl">${cabecalho}<tbody>${finalizadas.map(linhaParcela).join('')}</tbody></table></div>` : ''}`;
 
   if (card) card.style.display = 'block';
   const proxMeses = [];

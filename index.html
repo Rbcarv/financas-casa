@@ -706,7 +706,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
         <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px">
           <div style="min-width:200px">
             <label class="modal-label">Banco / cartão</label>
-            <select id="lf-banco" class="modal-input"><option value="porto">Porto Bank</option></select>
+            <select id="lf-banco" class="modal-input"><option value="auto">Detectar automaticamente</option><option value="porto">Porto Bank</option><option value="nubank">Nubank</option></select>
           </div>
           <div id="lf-senha-box" style="display:none;min-width:220px">
             <label class="modal-label">Senha do PDF</label>
@@ -2724,10 +2724,20 @@ async function lfProcessar(senha) {
     const doc = await pdfjsLib.getDocument({ data: new Uint8Array(_lfBuffer.slice(0)), password: senha || undefined }).promise;
     box.style.display = 'none';
     const linhas = await lfExtrairLinhas(doc);
-    const banco  = document.getElementById('lf-banco').value;
-    const lido   = LEITORES_FATURA[banco].ler(linhas);
+    let banco = document.getElementById('lf-banco').value;
+    const detectado = Object.keys(LEITORES_FATURA).find(k => LEITORES_FATURA[k].detectar(linhas));
+    if (banco === 'auto') banco = detectado;
+    else if (detectado && detectado !== banco) {
+      mostrarToastRico('ℹ️', 'Banco ajustado', `Esta fatura parece ser do ${LEITORES_FATURA[detectado].nome}`, 'success');
+      banco = detectado;
+    }
+    if (!banco) {
+      res.innerHTML = `<div class="card" style="text-align:center;padding:36px;color:var(--text-muted)">Não reconheci o banco desta fatura.<br><small>Por enquanto o leitor entende faturas do ${Object.values(LEITORES_FATURA).map(l => l.nome).join(' e do ')}.</small></div>`;
+      return;
+    }
+    const lido = LEITORES_FATURA[banco].ler(linhas);
     if (!lido.itens.length) {
-      res.innerHTML = `<div class="card" style="text-align:center;padding:36px;color:var(--text-muted)">Nenhum lançamento encontrado.<br><small>Confira se o banco escolhido é o desta fatura (${lfEsc(LEITORES_FATURA[banco].nome)}).</small></div>`;
+      res.innerHTML = `<div class="card" style="text-align:center;padding:36px;color:var(--text-muted)">Nenhum lançamento encontrado nesta fatura do ${lfEsc(LEITORES_FATURA[banco].nome)}.</div>`;
       return;
     }
     _lf = lfPrepararRevisao(lido, banco, _lfBuffer.nome);
@@ -2770,6 +2780,7 @@ async function lfExtrairLinhas(doc) {
 const LEITORES_FATURA = {
   porto: {
     nome: 'Porto Bank',
+    detectar: linhas => linhas.some(l => /Lan[cç]amentos no cart[aã]o \(final/i.test(l)),
     ler(linhas) {
       const itens = [], cartoes = {};
       let cartao = '', emDetalhe = false, limite = null;
@@ -2797,7 +2808,46 @@ const LEITORES_FATURA = {
         const [dia, mes] = m[0].split('/').map(Number);
         itens.push({ dia, mes, descricao: m[1].replace(/\s+/g, ' ').trim(), valor: lfNum(m[2]), cartao });
       }
-      return { itens, cartoes, limite };
+      // Subtotal da Porto = soma das compras (não desconta pagamentos/créditos)
+      return { itens, cartoes, limite, conferencia: 'positivos' };
+    }
+  },
+
+  nubank: {
+    nome: 'Nubank',
+    detectar: linhas => linhas.some(l => /Nu Pagamentos S\.A|NuPay|Nubank/i.test(l)) && linhas.some(l => /^TRANSA[CÇ][OÕ]ES/i.test(l)),
+    ler(linhas) {
+      const MESES = { JAN:1, FEV:2, MAR:3, ABR:4, MAI:5, JUN:6, JUL:7, AGO:8, SET:9, OUT:10, NOV:11, DEZ:12 };
+      const valor = s => lfNum(String(s).replace(/[−–]/g, '-'));   // "−R$ 19,90" usa o sinal tipográfico
+      const itens = [], cartoes = {};
+      let titular = '', emTransacoes = false, limite = null;
+      for (const l of linhas) {
+        const cols = l.split(' | ').map(c => c.trim());
+        const t = cols.join(' ');
+        // Fim do período da fatura: "EMISSÃO E ENVIO 20 OUT 2026"
+        const em = t.match(/EMISS[AÃ]O E ENVIO (\d{1,2}) ([A-Z]{3}) (\d{4})/i);
+        if (em && MESES[em[2].toUpperCase()] && !limite) limite = new Date(+em[3], MESES[em[2].toUpperCase()] - 1, +em[1]);
+        if (/^TRANSA[CÇ][OÕ]ES/i.test(t)) { emTransacoes = true; continue; }
+        if (!emTransacoes) continue;
+        if (/^Em cumprimento/i.test(t)) { emTransacoes = false; continue; }
+        // Titular (cada titular/adicional tem o próprio bloco): "Raphael B Carvalho | R$ 3.455,15"
+        if (cols.length === 2 && /^[−-]?R\$/.test(cols[1]) && !/^\d/.test(cols[0])) {
+          if (/^pagamentos?$/i.test(cols[0])) { titular = ''; continue; }
+          titular = cols[0];
+          (cartoes[titular] ||= { titular, rotulo: 'Titular' }).subtotal = valor(cols[1]);
+          continue;
+        }
+        // Lançamento: "20 SET | •••• 6760 | descrição | R$ 31,17" (o cartão pode não aparecer, ex. NuPay)
+        const dm = cols[0].match(/^(\d{2}) ([A-Z]{3})$/i);
+        if (!dm || !MESES[dm[2].toUpperCase()] || cols.length < 3 || !/^[−-]?R\$\s*[\d.]+,\d{2}$/.test(cols[cols.length - 1])) continue;
+        let meio = cols.slice(1, -1), final = '';
+        const fc = meio[0].match(/^•+\s*(\d{4})$/);
+        if (fc) { final = fc[1]; meio = meio.slice(1); }
+        const descricao = meio.join(' ').replace(/\s+/g, ' ').trim();
+        itens.push({ dia: +dm[1], mes: MESES[dm[2].toUpperCase()], descricao, valor: valor(cols[cols.length - 1]), cartao: titular, final });
+      }
+      // Subtotal do titular no Nubank = compras − estornos (pagamentos ficam em bloco separado)
+      return { itens, cartoes, limite, conferencia: 'todos' };
     }
   }
 };
@@ -2820,6 +2870,19 @@ const LF_ESTAB = [
   [/NETFLIX/, 'Netflix'],
   [/SPOTIFY/, 'Spotify'],
   [/PRODUTOSUOL|\bUOL\b/, 'UOL'],
+  [/ELECTROLUX/, 'Electrolux'],
+  [/SAMSUNG/, 'Samsung'],
+  [/IFD\*/, 'iFood'],
+  [/KEETA/, 'Keeta'],
+  [/TICKETMASTER/, 'Ticketmaster'],
+  [/TIKTOK SHOP/, 'TikTok Shop'],
+  [/PAO DE ACUCAR/, 'Pão de Açúcar'],
+  [/MC ?DONALDS/, "McDonald's"],
+  [/TOTAL ?PASS/, 'TotalPass'],
+  [/ABASTECE ?AI/, 'Abastece Aí'],
+  [/LOTERIASONLINE/, 'Loterias Online'],
+  [/NUBANK ULTRAVIOLETA/, 'Nubank', 'Nubank Ultravioleta'],
+  [/HIROTA/, 'Hirota'],
 ];
 
 const LF_PALAVRAS_IGNORAR = new Set(['BR','B','SAO','PAULO','SP','RJ','DE','DO','DA','MP','DL','PG','PAG','EC','LTDA','COM']);
@@ -2831,6 +2894,18 @@ function lfChaves(texto) {
 }
 const lfCompacto = s => lfSemAcento(s).replace(/[^A-Z]/g, '');
 const lfTitulo = s => String(s || '').toLowerCase().replace(/(^|\s)\S/g, c => c.toUpperCase());
+
+/** Nome de loja a partir do texto da fatura: tira prefixos de maquininha e códigos */
+function lfNomeEstab(texto) {
+  let d = String(texto || '')
+    .replace(/^(PG|MP|EC|DL|PAG|JIM\.COM|IFD|KEETABR)\s*\*\s*/i, '')   // "Pg *Loja", "Mp *Loja"
+    .replace(/\*/g, ' ')                                               // "Alley*Surf" → "Alley Surf"
+    .replace(/(\s|-)\d{3,}.*$/, '')                                     // "-2469", " 36880570 Hen"
+    .replace(/\s+/g, ' ').trim();
+  if (!d) d = String(texto || '').trim();
+  // Texto todo em maiúsculas (Porto): usa as 3 primeiras palavras com iniciais maiúsculas
+  return /[a-z]/.test(d) ? d : lfTitulo(d.split(' ').filter(w => !/^(MP|DL|EC|PG)$/i.test(w)).slice(0, 3).join(' '));
+}
 
 /** Índice do histórico: estabelecimento/descrição → categoria e estabelecimento mais usados */
 function lfIndiceHistorico() {
@@ -2884,7 +2959,7 @@ function lfPrepararRevisao(lido, banco, arquivo) {
   const historico = lfIndiceHistorico();
   const cartoes = {};
   Object.entries(lido.cartoes).forEach(([f, c]) => {
-    cartoes[f] = { titular: c.titular || '', subtotal: c.subtotal ?? null, pessoa: lfPessoaDoTitular(f, c.titular || '') };
+    cartoes[f] = { titular: c.titular || '', rotulo: c.rotulo || 'Cartão final ' + f, subtotal: c.subtotal ?? null, pessoa: lfPessoaDoTitular(f, c.titular || '') };
   });
 
   const itens = [], ignorados = [];
@@ -2894,7 +2969,7 @@ function lfPrepararRevisao(lido, banco, arquivo) {
     const data = `${String(it.dia).padStart(2,'0')}/${String(it.mes).padStart(2,'0')}/${ano}`;
     const dataObj = new Date(ano, it.mes - 1, it.dia);
 
-    if (it.valor < 0 && /PAGAMENTO/i.test(it.descricao)) {
+    if (it.valor < 0 && /PAGAMENTO/i.test(it.descricao) && !/ESTORNO/i.test(it.descricao)) {
       ignorados.push({ ...it, data, motivo: 'Pagamento da fatura' });
       return;
     }
@@ -2906,14 +2981,18 @@ function lfPrepararRevisao(lido, banco, arquivo) {
 
     // Descrição limpa: sem a parcela e sem o " BR" do fim
     let descricao = it.descricao.replace(pm ? pm[0] : '', ' ').replace(/\bPARC(ELA)?\b\.?/gi, ' ')
+      .replace(/\s+-\s+NuPay\b/i, ' ').replace(/[\s-]+$/, '')
       .replace(/\s+B[RZ]?$/i, '').replace(/\s+/g, ' ').trim();
     const regra = LF_ESTAB.find(([re]) => re.test(lfSemAcento(it.descricao))) || [];
     const estabDic = regra[1] || '';
     const sug = historico.buscar(it.descricao, estabDic);
     const estabConhecido = sug?.estabelecimento || estabDic;
-    const estabelecimento = estabConhecido || lfTitulo(descricao.split(' ').filter(w => !/^(MP|DL|EC|PG)$/i.test(w)).slice(0, 3).join(' '));
-    // Estabelecimento reconhecido: descrição vira o nome limpo (o texto original fica visível em cinza)
+    const nomeLimpo = lfNomeEstab(descricao);
+    const estabelecimento = estabConhecido || nomeLimpo;
+    // Estabelecimento reconhecido: descrição vira o nome limpo (o texto original fica visível em cinza).
+    // Texto já bem escrito (com minúsculas, como no Nubank): usa o nome limpo também.
     if (estabConhecido) descricao = regra[2] || estabConhecido;
+    else if (/[a-z]/.test(descricao)) descricao = nomeLimpo;
 
     const valorTotal = parcAtual === 1 ? Math.round(it.valor * parcTotal * 100) / 100 : it.valor;
 
@@ -2930,16 +3009,28 @@ function lfPrepararRevisao(lido, banco, arquivo) {
       aprovado, aviso, tipoAviso, data, original: it.descricao, descricao, estabelecimento,
       categoria: sug?.categoria && cfg.cats.includes(sug.categoria) ? sug.categoria : '',
       quemPagou: cartoes[it.cartao]?.pessoa || p1(),
-      separado: false, cartao: it.cartao, valor: it.valor,
+      separado: false, cartao: it.cartao, final: it.final || '', valor: it.valor,
       parcelas: parcAtual === 1 ? parcTotal : 0, valorTotal
     });
   });
 
-  // Conferência: soma das compras de cada cartão x subtotal impresso na fatura
+  // Estorno de uma compra da mesma fatura: os dois se anulam, então ambos vêm desmarcados
+  itens.filter(e => e.valor < 0).forEach(e => {
+    const nome = (e.original.match(/estorno de ["“](.+?)["”]/i) || [])[1];
+    const compra = itens.find(c => c.valor > 0 && !c.estornada && Math.abs(c.valor + e.valor) < 0.01 &&
+      (!nome || lfSemAcento(c.original).includes(lfSemAcento(nome))));
+    if (!compra) return;
+    compra.estornada = true;
+    compra.aprovado = false; compra.aviso = 'Estornada nesta mesma fatura'; compra.tipoAviso = 'warn';
+    e.aviso = 'Estorno de uma compra desta fatura';
+  });
+
+  // Conferência: soma dos lançamentos de cada cartão/titular x total impresso na fatura
   Object.entries(cartoes).forEach(([f, c]) => {
     const doCartao = itens.filter(i => i.cartao === f);
     c.qtd = doCartao.length;
-    c.soma = Math.round(doCartao.filter(i => i.valor > 0).reduce((s, i) => s + i.valor, 0) * 100) / 100;
+    const considerados = lido.conferencia === 'todos' ? doCartao : doCartao.filter(i => i.valor > 0);
+    c.soma = Math.round(considerados.reduce((s, i) => s + i.valor, 0) * 100) / 100;
     c.confere = c.subtotal == null ? null : Math.abs(c.soma - c.subtotal) < 0.01;
   });
 
@@ -2980,7 +3071,7 @@ function renderLeitor() {
       : c.confere ? `<span class="badge ok">✓ confere com a fatura (${lfMoeda(c.subtotal)})</span>`
       : `<span class="badge over">⚠ soma ${lfMoeda(c.soma)} ≠ fatura ${lfMoeda(c.subtotal)}: alguma linha pode não ter sido lida</span>`;
     return `<div class="lf-cartao">
-      <div><b>Cartão final ${lfEsc(f)}</b> · ${lfEsc(c.titular)} · ${c.qtd} lançamento(s) &nbsp;${conf}</div>
+      <div><b>${lfEsc(c.rotulo)}</b>${c.rotulo === 'Titular' ? ': ' + lfEsc(c.titular) : ' · ' + lfEsc(c.titular)} · ${c.qtd} lançamento(s) &nbsp;${conf}</div>
       <label style="display:flex;align-items:center;gap:8px;color:var(--text-muted)">Quem pagou neste cartão:
         <select class="lf-in" style="width:auto" onchange="lfCartaoPessoa('${f}',this.value)">
           ${pessoas.map(p => `<option ${p === c.pessoa ? 'selected' : ''}>${lfEsc(p)}</option>`).join('')}
@@ -2995,7 +3086,7 @@ function renderLeitor() {
       <td style="width:28px"><input type="checkbox" class="lf-chk" ${it.aprovado ? 'checked' : ''} onchange="lfSet(${i},'aprovado',this.checked)" title="Aprovar"></td>
       <td style="width:96px"><input class="lf-in" value="${lfEsc(it.data)}" onchange="lfSet(${i},'data',this.value)" style="font-family:'DM Mono',monospace"></td>
       <td style="min-width:190px"><input class="lf-in" value="${lfEsc(it.descricao)}" onchange="lfSet(${i},'descricao',this.value)">
-        <div class="lf-orig" title="${lfEsc(it.original)}">${lfEsc(it.original)}</div>
+        <div class="lf-orig" title="${lfEsc(it.original)}">${it.final ? '•••• ' + lfEsc(it.final) + ' · ' : ''}${lfEsc(it.original)}</div>
         ${it.aviso ? `<span class="badge ${it.tipoAviso}" style="margin-top:4px;font-size:10px">${lfEsc(it.aviso)}</span>` : ''}</td>
       <td style="min-width:140px"><input class="lf-in" list="lf-estabs" value="${lfEsc(it.estabelecimento)}" onchange="lfSet(${i},'estabelecimento',this.value)"></td>
       <td style="min-width:140px"><select class="lf-in ${it.aprovado && !it.categoria ? 'faltando' : ''}" id="lf-cat-${i}" onchange="lfSet(${i},'categoria',this.value)">

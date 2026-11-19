@@ -66,6 +66,24 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .nav-item.active{color:var(--rapha);background:var(--rapha-light);border-left-color:var(--rapha);font-weight:500}
 .nav-icon{width:16px;height:16px;flex-shrink:0}
 .nav-section{font-size:10px;font-weight:600;color:var(--text-faint);letter-spacing:.08em;text-transform:uppercase;padding:14px 20px 5px}
+/* SELETOR DE MÊS (lista própria: cores e ícones por situação do mês) */
+.md{position:relative;margin:0 20px 4px}
+.md-btn{display:flex;align-items:center;gap:8px;width:100%;padding:8px 10px;border-radius:var(--radius-sm);border:1px solid var(--border-strong);background:var(--bg);font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);cursor:pointer;text-align:left}
+.md-btn:focus-visible{outline:2px solid var(--rapha);outline-offset:1px}
+.md-btn .md-seta{margin-left:auto;color:var(--text-muted);transition:transform .15s}
+.md.aberto .md-seta{transform:rotate(180deg)}
+.md-lista{display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:60;max-height:330px;overflow-y:auto;background:var(--surface);border:1px solid var(--border-strong);border-radius:var(--radius-sm);box-shadow:0 10px 30px rgba(0,0,0,.12);padding:4px}
+.md.aberto .md-lista{display:block}
+.md-item{display:flex;align-items:center;gap:8px;padding:7px 9px;border-radius:6px;font-size:13px;color:var(--text);cursor:pointer}
+.md-item:hover,.md-item.foco{background:var(--bg)}
+.md-item.sel{background:var(--rapha-light);font-weight:600}
+.md-ico{width:14px;height:14px;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.md-fechado{color:#15803d}
+.md-fechado .md-ico{color:#16a34a}
+.md-item.md-fechado:hover,.md-item.md-fechado.foco{background:#f0fdf4}
+.md-alerta{margin-left:auto;background:var(--red);color:#fff;font-size:10px;font-weight:700;border-radius:99px;width:16px;height:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.md-legenda{display:flex;gap:12px;padding:7px 9px 4px;margin-top:4px;border-top:1px solid var(--border);font-size:10px;color:var(--text-muted)}
+.md-legenda span{display:flex;align-items:center;gap:4px}
 .mes-select{margin:0 20px 4px;padding:8px 10px;border-radius:var(--radius-sm);border:1px solid var(--border-strong);background:var(--bg);font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);cursor:pointer;width:calc(100% - 40px)}
 .sidebar-footer{margin-top:auto;padding:14px 20px 0;border-top:1px solid var(--border)}
 .status-row{display:flex;align-items:center;justify-content:space-between}
@@ -313,7 +331,11 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
       <div class="brand-sub"><span data-nome="p1">Rapha</span> & <span data-nome="p2">Fernanda</span></div>
     </div>
 
-    <select class="mes-select" id="selMes"></select>
+    <select class="mes-select" id="selMes" style="display:none" aria-hidden="true"></select>
+    <div class="md" id="mesDrop">
+      <button type="button" class="md-btn" id="mesDropBtn" aria-haspopup="listbox" aria-expanded="false" onclick="mdAlternar()" onkeydown="mdTeclado(event)"></button>
+      <div class="md-lista" id="mesDropLista" role="listbox"></div>
+    </div>
 
     <div class="search-wrap">
       <svg class="search-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6.5" cy="6.5" r="4.5"/><path d="M10 10l3 3"/></svg>
@@ -1279,7 +1301,94 @@ function popularSelectMes() {
   sel.value = alvo;
   mesSel = sel.value;
   sel.onchange = () => { mesSel = sel.value; renderTudo(); };
+  renderMesDrop();
 }
+
+// ── Seletor de mês com situação de cada mês ──
+// ✓ verde  = mês fechado
+// ! vermelho = mês que já passou e ainda não foi fechado
+const MD_CHECK = '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.2 3L13 4.5"/></svg>';
+const MD_SETA  = '<svg class="md-seta" viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6l4 4 4-4"/></svg>';
+let _mdFoco = -1;
+
+function mdSituacao(m) {
+  if (mesFechado(m)) return 'fechado';
+  const [mm, aa] = m.split('/').map(Number), [hm, ha] = mesAtualKey().split('/').map(Number);
+  return (aa * 12 + mm) < (ha * 12 + hm) ? 'pendente' : 'aberto';
+}
+
+function mdLinhaHTML(m, extraClasse) {
+  const [mm, yyyy] = m.split('/');
+  const sit = mdSituacao(m);
+  const nome = MESES_NOMES[+mm - 1] + ' ' + yyyy;
+  const ico = sit === 'fechado' ? MD_CHECK : '';
+  const alerta = sit === 'pendente' ? '<span class="md-alerta" title="Mês já passou e ainda não foi fechado">!</span>' : '';
+  const dica = sit === 'fechado' ? 'Mês fechado' : sit === 'pendente' ? 'Ainda não foi fechado' : '';
+  return { cls: (sit === 'fechado' ? 'md-fechado ' : '') + (extraClasse || ''), html: `<span class="md-ico">${ico}</span><span>${nome}</span>${alerta}`, dica };
+}
+
+function renderMesDrop() {
+  const btn = document.getElementById('mesDropBtn'), lista = document.getElementById('mesDropLista');
+  if (!btn || !lista) return;
+  if (!mesesDisp.length) { btn.innerHTML = '<span>Nenhum dado ainda</span>' + MD_SETA; lista.innerHTML = ''; return; }
+  const atual = mdLinhaHTML(mesSel);
+  btn.className = 'md-btn ' + atual.cls;
+  btn.innerHTML = atual.html + MD_SETA;
+  btn.title = atual.dica;
+  const temFechado = mesesDisp.some(m => mdSituacao(m) === 'fechado');
+  const temPendente = mesesDisp.some(m => mdSituacao(m) === 'pendente');
+  lista.innerHTML = mesesDisp.map((m, i) => {
+    const l = mdLinhaHTML(m, m === mesSel ? 'sel' : '');
+    return `<div class="md-item ${l.cls}" role="option" aria-selected="${m === mesSel}" data-i="${i}" title="${l.dica}" onclick="mdEscolher('${m}')">${l.html}</div>`;
+  }).join('') + ((temFechado || temPendente) ? `<div class="md-legenda">
+      ${temFechado ? `<span class="md-fechado"><span class="md-ico">${MD_CHECK}</span>fechado</span>` : ''}
+      ${temPendente ? '<span><span class="md-alerta" style="margin:0;width:13px;height:13px;font-size:9px">!</span>não fechado</span>' : ''}</div>` : '');
+}
+
+function mdAlternar(abrir) {
+  const dd = document.getElementById('mesDrop');
+  const vaiAbrir = abrir ?? !dd.classList.contains('aberto');
+  dd.classList.toggle('aberto', vaiAbrir);
+  document.getElementById('mesDropBtn').setAttribute('aria-expanded', vaiAbrir);
+  if (vaiAbrir) {
+    renderMesDrop();
+    _mdFoco = mesesDisp.indexOf(mesSel);
+    mdMarcarFoco();
+  }
+}
+
+function mdEscolher(m) {
+  const sel = document.getElementById('selMes');
+  sel.value = m; mesSel = m;
+  mdAlternar(false);
+  renderMesDrop();
+  renderTudo();
+}
+
+function mdMarcarFoco() {
+  const itens = document.querySelectorAll('#mesDropLista .md-item');
+  itens.forEach((el, i) => el.classList.toggle('foco', i === _mdFoco));
+  itens[_mdFoco]?.scrollIntoView({ block: 'nearest' });
+}
+
+function mdTeclado(e) {
+  const aberto = document.getElementById('mesDrop').classList.contains('aberto');
+  if (e.key === 'Escape') { mdAlternar(false); return; }
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    if (!aberto) { mdAlternar(true); return; }
+    _mdFoco = Math.max(0, Math.min(mesesDisp.length - 1, _mdFoco + (e.key === 'ArrowDown' ? 1 : -1)));
+    mdMarcarFoco();
+  }
+  if ((e.key === 'Enter' || e.key === ' ') && aberto && _mdFoco >= 0) { e.preventDefault(); mdEscolher(mesesDisp[_mdFoco]); }
+}
+
+// Fecha ao clicar fora
+document.addEventListener('click', e => {
+  const dd = document.getElementById('mesDrop');
+  // composedPath guarda o caminho do clique mesmo se o botão for redesenhado durante o clique
+  if (dd && !e.composedPath().includes(dd)) mdAlternar(false);
+});
 
 // ══════════════════════════════════════════════════════
 // FILTROS
@@ -1503,6 +1612,7 @@ async function carregarHistorico(forcar=false) {
   try {
     const json = await apiGet('listarHistorico');
     _historicoFechamentos = (json.historico || []).map(objetoSeguro);
+    if (mesesDisp.length) renderMesDrop();   // atualiza o ✓ / ! do seletor de mês
   } catch(e) {
     if (e instanceof SessaoExpirada) throw e;
     _historicoFechamentos = _historicoFechamentos || [];
